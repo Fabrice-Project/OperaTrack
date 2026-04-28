@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpéraTrack — Ville de Denain</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+      :root {
+        --color-primary: #1A3A5C;
+        --color-secondary: #2E75B6;
+        --color-accent: #E8920A;
+        --color-danger: #C0392B;
+        --color-success: #1E7E45;
+        --color-bg: #F4F6F9;
+        --color-surface: #FFFFFF;
+        --color-text: #1C2B39;
+        --color-text-muted: #6B7A8D;
+        --color-border: #DDE3EA;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: 'IBM Plex Sans', sans-serif;
+        background-color: var(--color-bg);
+        color: var(--color-text);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      h1, h2, h3, h4, h5, h6 {
+        font-family: 'DM Sans', sans-serif;
+      }
+
+      @keyframes pulse-red {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.4); }
+        50% { box-shadow: 0 0 0 8px rgba(192,57,43,0); }
+      }
+
+      @keyframes bounce-in {
+        0% { transform: scale(0); opacity: 0; }
+        60% { transform: scale(1.2); }
+        100% { transform: scale(1); opacity: 1; }
+      }
+
+      @keyframes skeleton-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .animate-fade-in { animation: fade-in 200ms ease forwards; }
+      .animate-skeleton { animation: skeleton-pulse 1.5s ease-in-out infinite; }
+      .animate-pulse-red { animation: pulse-red 2s ease-in-out infinite; }
+
+      .leaflet-container { font-family: 'IBM Plex Sans', sans-serif; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-white font-heading font-semibold px-4 py-2 rounded-lg text-sm
+           transition-all duration-150 hover:-translate-y-px hover:shadow-md
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none;
+    min-height: 38px;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-primary border border-border font-heading font-semibold px-4 py-2 rounded-lg text-sm
+           transition-all duration-150 hover:-translate-y-px hover:shadow-sm;
+    min-height: 38px;
+  }
+
+  .btn-danger {
+    @apply bg-danger text-white font-heading font-semibold px-4 py-2 rounded-lg text-sm
+           transition-all duration-150 hover:-translate-y-px hover:shadow-md;
+    min-height: 38px;
+  }
+
+  .card {
+    @apply bg-surface rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.08)];
+  }
+
+  .form-label {
+    @apply block text-xs font-semibold text-text-muted mb-1 uppercase tracking-wide;
+  }
+
+  .form-input {
+    @apply w-full border border-border rounded-lg px-3 py-2 text-sm text-text-main
+           focus:outline-none focus:ring-2 focus:ring-secondary/30 focus:border-secondary
+           transition-colors placeholder-text-muted/50;
+  }
+
+  .form-select {
+    @apply form-input bg-white cursor-pointer;
+  }
+
+  .form-textarea {
+    @apply form-input resize-none;
+  }
+
+  .table-header {
+    @apply bg-primary text-white text-xs font-semibold uppercase tracking-wide px-4 py-3 text-left cursor-pointer select-none;
+  }
+
+  .table-cell {
+    @apply px-4 py-3 text-sm text-text-main;
+  }
+
+  .table-row-even { @apply bg-white; }
+  .table-row-odd { @apply bg-[#F5F9FC]; }
+  .table-row-hover { @apply hover:bg-[#EEF4FB] hover:cursor-pointer transition-colors; }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+
+  .skeleton {
+    @apply bg-gray-200 rounded;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+  }
+}
+
+/* Scrollbar custom */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #F4F6F9; }
+::-webkit-scrollbar-thumb { background: #DDE3EA; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #6B7A8D; }
