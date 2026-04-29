@@ -12,6 +12,7 @@ import L from 'leaflet';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { InterventionModal } from '../../../components/patrimoine/InterventionModal';
+import { InterventionList } from '../../../components/patrimoine/InterventionList';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { api } from '../../../utils/api';
@@ -30,13 +31,6 @@ const ETAT_COLORS = {
 };
 const ETAT_LABELS = {
   bon: 'Bon', moyen: 'Moyen', degrade: 'Dégradé', tres_degrade: 'Très dégradé',
-};
-const STATUT_COLORS = {
-  signalee:   { bg: '#FEE2E2', color: '#991B1B', label: 'Signalée' },
-  programmee: { bg: '#DBEAFE', color: '#1D4ED8', label: 'Programmée' },
-  en_cours:   { bg: '#FEF3C7', color: '#92400E', label: 'En cours' },
-  realisee:   { bg: '#D1FAE5', color: '#065F46', label: 'Réalisée' },
-  cloturee:   { bg: '#F3F4F6', color: '#374151', label: 'Clôturée' },
 };
 
 const MOBILIER_TYPES = [
@@ -814,52 +808,11 @@ export default function TronconPage() {
             )}
           </div>
 
-          {interventions.length === 0 ? (
-            <div className="p-8 text-center text-text-muted text-sm">Aucune intervention enregistrée.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-border bg-gray-50">
-                    <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Date</th>
-                    <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Catégorie</th>
-                    <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Nature</th>
-                    <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Intervenant</th>
-                    <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Statut</th>
-                    {!isReadOnly && <th className="py-2 px-2 w-16" />}
-                  </tr>
-                </thead>
-                <tbody>
-                  {interventions.map((iv, i) => {
-                    const cfg = STATUT_COLORS[iv.statut] || STATUT_COLORS.signalee;
-                    return (
-                      <tr key={iv.id} className={`border-b border-border hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
-                        <td className="py-2.5 px-3 text-xs font-mono text-text-muted">{fmtDate(iv.date_signalement)}</td>
-                        <td className="py-2.5 px-3 text-sm text-text-muted">{iv.categorie || '—'}</td>
-                        <td className="py-2.5 px-3 text-sm text-text-main max-w-xs truncate">{iv.nature || '—'}</td>
-                        <td className="py-2.5 px-3 text-sm text-text-muted">
-                          {iv.type_intervenant === 'prestataire'
-                            ? (iv.prestataire_nom || 'Prestataire')
-                            : (iv.agent_nom || 'Agent interne')}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                            style={{ backgroundColor: cfg.bg, color: cfg.color }}>{cfg.label}</span>
-                        </td>
-                        {!isReadOnly && (
-                          <td className="py-2.5 px-2">
-                            <button onClick={() => setInterventionModal(iv)} className="p-1.5 rounded hover:bg-blue-50 text-blue-400">
-                              <Edit2 size={13} />
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <InterventionList
+            interventions={interventions}
+            onRefresh={load}
+            onEdit={(iv) => setInterventionModal(iv)}
+          />
         </div>
       </div>
 

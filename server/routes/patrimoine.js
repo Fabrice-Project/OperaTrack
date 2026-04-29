@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticate, requireWriteAccess, requireRole } = require('../middleware/auth');
-const ctrl = require('../controllers/patrimoineController');
+const ctrl  = require('../controllers/patrimoineController');
+const ectrl = require('../controllers/energieController');
 
 const router = express.Router();
 router.use(authenticate);
@@ -58,11 +59,44 @@ router.post('/batiments/:id/equipements', requireWriteAccess, ctrl.createEquipem
 router.put('/equipements/:id', requireWriteAccess, ctrl.updateEquipement);
 router.delete('/equipements/:id', requireWriteAccess, ctrl.deleteEquipement);
 
+// ── Contrôles réglementaires (rattachés au bâtiment) ─────────────────────────
+router.get('/batiments/:id/controles',    ctrl.getControlesBatiment);
+router.post('/batiments/:id/controles',   requireWriteAccess, ctrl.createControleBatiment);
+router.put('/controles-batiment/:id',     requireWriteAccess, ctrl.updateControleBatiment);
+router.delete('/controles-batiment/:id',  requireRole('admin'), ctrl.deleteControleBatiment);
+
 // ── Interventions ─────────────────────────────────────────────────────────────
 router.get('/interventions', ctrl.getInterventions);
 router.post('/interventions', requireWriteAccess, ctrl.createIntervention);
 router.get('/interventions/:id', ctrl.getIntervention);
 router.put('/interventions/:id', requireWriteAccess, ctrl.updateIntervention);
 router.delete('/interventions/:id', requireRole('admin'), ctrl.deleteIntervention);
+
+// ── Énergie — Dashboard global ────────────────────────────────────────────────
+router.get('/energie/dashboard', ectrl.getEnergieDashboard);
+
+// ── Énergie — Compteurs ───────────────────────────────────────────────────────
+router.get('/compteurs',     ectrl.getCompteurs);
+router.post('/compteurs',    requireWriteAccess, ectrl.createCompteur);
+router.put('/compteurs/:id', requireWriteAccess, ectrl.updateCompteur);
+router.delete('/compteurs/:id', requireRole('admin'), ectrl.deleteCompteur);
+
+// ── Énergie — Relevés ─────────────────────────────────────────────────────────
+router.get('/compteurs/:id/releves',     ectrl.getReleves);
+router.post('/compteurs/:id/releves',    requireWriteAccess, ectrl.createReleve);
+router.post('/compteurs/:id/import-csv', requireWriteAccess, ectrl.importCSV);
+router.put('/releves/:id',   requireWriteAccess, ectrl.updateReleve);
+router.delete('/releves/:id', requireWriteAccess, ectrl.deleteReleve);
+
+// ── Énergie — Synthèse par bâtiment / armoire ─────────────────────────────────
+router.get('/batiments/:id/synthese-energie', ectrl.getSyntheseEnergieBatiment);
+router.get('/armoires/:id/synthese-energie',  ectrl.getSyntheseEnergieArmoire);
+
+// ── Énergie — Décret Tertiaire ────────────────────────────────────────────────
+router.get('/batiments/:id/decret-tertiaire', ectrl.getDecretTertiaire);
+router.put('/batiments/:id/decret-tertiaire', requireWriteAccess, ectrl.upsertDecretTertiaire);
+
+// ── Énergie — Exports ─────────────────────────────────────────────────────────
+router.get('/exports/operat', ectrl.exportOperat);
 
 module.exports = router;

@@ -1,5 +1,5 @@
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderOpen, BarChart3, Settings, Building2, Route, Lightbulb } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, BarChart3, Settings, Building2, Route, Lightbulb, Zap } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const NAV_ITEMS = [
@@ -13,9 +13,10 @@ const NAV_ITEMS = [
 ];
 
 const PATRIMOINE_ITEMS = [
-  { to: '/patrimoine/voirie', icon: Route, label: 'Voirie' },
+  { to: '/patrimoine/voirie',    icon: Route,     label: 'Voirie' },
   { to: '/patrimoine/eclairage', icon: Lightbulb, label: 'Éclairage public' },
   { to: '/patrimoine/batiments', icon: Building2, label: 'Bâtiments' },
+  { to: '/patrimoine/energie',   icon: Zap,       label: 'Tableau de bord énergie' },
 ];
 
 export function Sidebar() {
@@ -84,7 +85,7 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="px-5 py-4 border-t border-white/10">
-        <div className="text-white/30 text-xs">Phase 5 — Avril 2026</div>
+        <div className="text-white/30 text-xs">Phase 5b — Avril 2026</div>
       </div>
     </aside>
   );

@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, Edit2, X, Save, MapPin, Navigation2, Check, Zap } from 'lucide-react';
+import { TabConsommationsArmoire } from '../energie/TabConsommationsArmoire';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { InterventionModal } from '../../../components/patrimoine/InterventionModal';
+import { InterventionList } from '../../../components/patrimoine/InterventionList';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { api } from '../../../utils/api';
@@ -30,13 +32,6 @@ const ETAT_LABELS_PL = {
   en_travaux:  'En travaux',
 };
 
-const STATUT_COLORS = {
-  signalee:   { bg: '#FEE2E2', color: '#991B1B', label: 'Signalee' },
-  programmee: { bg: '#DBEAFE', color: '#1D4ED8', label: 'Programmee' },
-  en_cours:   { bg: '#FEF3C7', color: '#92400E', label: 'En cours' },
-  realisee:   { bg: '#D1FAE5', color: '#065F46', label: 'Realisee' },
-  cloturee:   { bg: '#F3F4F6', color: '#374151', label: 'Cloturee' },
-};
 
 const TYPE_LAMPE_LABELS = {
   led: 'LED', sodium_hp: 'Sodium HP', fluocompacte: 'Fluocompacte',
@@ -170,6 +165,7 @@ export default function ArmoirePage() {
   const [loading, setLoading]   = useState(true);
   const [showEdit, setShowEdit] = useState(false);
   const [interventionModal, setInterventionModal] = useState(null);
+  const [tab, setTab] = useState('points');
 
   const [placing, setPlacing]     = useState(false);
   const [tempPos, setTempPos]     = useState(null);
@@ -366,8 +362,26 @@ export default function ArmoirePage() {
           )}
         </div>
 
-        {/* Points lumineux rattaches */}
-        <div className="card overflow-hidden">
+        {/* ── Onglets ────────────────────────────────────────────────────── */}
+        <div className="flex gap-1 border-b border-border pb-0">
+          {[
+            { id: 'points',        label: `Points lumineux (${pointsLumineux.length})` },
+            { id: 'interventions', label: `Interventions (${interventions.length})` },
+            { id: 'consommations', label: '⚡ Consommations' },
+          ].map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors -mb-px ${
+                tab === t.id
+                  ? 'border-primary text-primary bg-white'
+                  : 'border-transparent text-text-muted hover:text-text-main'
+              }`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Onglet Points lumineux ──────────────────────────────────────── */}
+        {tab === 'points' && <div className="card overflow-hidden">
           <div className="flex items-center justify-between p-4 border-b border-border">
             <h3 className="font-heading font-semibold text-sm text-text-main flex items-center gap-2">
               <Zap size={15} className="text-yellow-500" />
@@ -416,10 +430,10 @@ export default function ArmoirePage() {
               </table>
             </div>
           )}
-        </div>
+        </div>}
 
-        {/* Interventions armoire */}
-        <div className="card overflow-hidden">
+        {/* ── Onglet Interventions ────────────────────────────────────────── */}
+        {tab === 'interventions' && <div className="card overflow-hidden">
           <div className="flex items-center justify-between p-4 border-b border-border">
             <h3 className="font-heading font-semibold text-sm text-text-main">
               Interventions ({interventions.length})
@@ -431,54 +445,20 @@ export default function ArmoirePage() {
               </button>
             )}
           </div>
-          {interventions.length === 0 ? (
-            <div className="p-8 text-center text-text-muted text-sm">Aucune intervention enregistree.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-border bg-gray-50">
-                    <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Date</th>
-                    <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Categorie</th>
-                    <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Nature</th>
-                    <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Intervenant</th>
-                    <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Statut</th>
-                    {!isReadOnly && <th className="py-2 px-2 w-16" />}
-                  </tr>
-                </thead>
-                <tbody>
-                  {interventions.map((iv, i) => {
-                    const cfg = STATUT_COLORS[iv.statut] || STATUT_COLORS.signalee;
-                    return (
-                      <tr key={iv.id} className={`border-b border-border hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
-                        <td className="py-2.5 px-3 text-xs font-mono text-text-muted">{fmtDate(iv.date_signalement)}</td>
-                        <td className="py-2.5 px-3 text-sm text-text-muted capitalize">{iv.categorie || '—'}</td>
-                        <td className="py-2.5 px-3 text-sm text-text-main max-w-xs truncate">{iv.nature || '—'}</td>
-                        <td className="py-2.5 px-3 text-sm text-text-muted">
-                          {iv.type_intervenant === 'prestataire'
-                            ? (iv.prestataire_nom || 'Prestataire')
-                            : (iv.agent_nom || 'Agent interne')}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                            style={{ backgroundColor: cfg.bg, color: cfg.color }}>{cfg.label}</span>
-                        </td>
-                        {!isReadOnly && (
-                          <td className="py-2.5 px-2">
-                            <button onClick={() => setInterventionModal(iv)}
-                              className="p-1.5 rounded hover:bg-blue-50 text-blue-400" title="Modifier">
-                              <Edit2 size={13} />
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+          <InterventionList
+            interventions={interventions}
+            onRefresh={load}
+            onEdit={(iv) => setInterventionModal(iv)}
+          />
+        </div>}
+
+        {/* ── Onglet Consommations ────────────────────────────────────────── */}
+        {tab === 'consommations' && (
+          <div className="card p-4">
+            <TabConsommationsArmoire armoireId={id} />
+          </div>
+        )}
+
       </div>
 
       {showEdit && (

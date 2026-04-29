@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Plus, Edit2, Trash2, AlertTriangle, Clock, FileText, X, MapPin } from 'lucide-react';
+import { Plus, Edit2, Trash2, AlertTriangle, Clock, FileText, X, MapPin, Zap } from 'lucide-react';
+import { TabConsommationsBatiment } from '../energie/TabConsommationsBatiment';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { InterventionModal } from '../../../components/patrimoine/InterventionModal';
+import { InterventionList } from '../../../components/patrimoine/InterventionList';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { api } from '../../../utils/api';
@@ -48,13 +50,6 @@ const EQUIPEMENTS_STANDARD = [
   { intitule: 'Parkings / Voiries internes',    categorie: 'Abords' },
 ];
 
-const STATUT_COLORS = {
-  signalee:   { bg: '#FEE2E2', color: '#991B1B', label: 'Signalée' },
-  programmee: { bg: '#DBEAFE', color: '#1D4ED8', label: 'Programmée' },
-  en_cours:   { bg: '#FEF3C7', color: '#92400E', label: 'En cours' },
-  realisee:   { bg: '#D1FAE5', color: '#065F46', label: 'Réalisée' },
-  cloturee:   { bg: '#F3F4F6', color: '#374151', label: 'Clôturée' },
-};
 
 const DPE_COLORS = { A: '#1E7E45', B: '#3BAA5A', C: '#A3C93B', D: '#E8920A', E: '#D4680A', F: '#C0392B', G: '#7B0000' };
 
@@ -480,52 +475,11 @@ function TabInterventions({ batimentId, batimentNom, equipements }) {
       </div>
 
       <div className="card overflow-hidden">
-        {interventions.length === 0 ? (
-          <div className="p-8 text-center text-text-muted text-sm">Aucune intervention enregistrée.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-border bg-gray-50">
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Date</th>
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Catégorie</th>
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Nature</th>
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Intervenant</th>
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Statut</th>
-                  {!isReadOnly && <th className="py-2 px-2 w-16" />}
-                </tr>
-              </thead>
-              <tbody>
-                {interventions.map((iv, i) => {
-                  const cfg = STATUT_COLORS[iv.statut] || STATUT_COLORS.signalee;
-                  return (
-                    <tr key={iv.id} className={`border-b border-border hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
-                      <td className="py-2.5 px-3 text-xs font-mono text-text-muted">{fmtDate(iv.date_signalement)}</td>
-                      <td className="py-2.5 px-3 text-sm text-text-muted">{iv.categorie || '—'}</td>
-                      <td className="py-2.5 px-3 text-sm text-text-main max-w-xs truncate">{iv.nature || '—'}</td>
-                      <td className="py-2.5 px-3 text-sm text-text-muted">
-                        {iv.type_intervenant === 'prestataire' ? (iv.prestataire_nom || 'Prestataire') : (iv.agent_nom || 'Agent interne')}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                          style={{ backgroundColor: cfg.bg, color: cfg.color }}>
-                          {cfg.label}
-                        </span>
-                      </td>
-                      {!isReadOnly && (
-                        <td className="py-2.5 px-2">
-                          <button onClick={() => setInterventionModal(iv)} className="p-1.5 rounded hover:bg-blue-50 text-blue-400">
-                            <Edit2 size={13} />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <InterventionList
+          interventions={interventions}
+          onRefresh={load}
+          onEdit={(iv) => setInterventionModal(iv)}
+        />
       </div>
 
       {interventionModal !== null && (
@@ -543,69 +497,285 @@ function TabInterventions({ batimentId, batimentNom, equipements }) {
   );
 }
 
-// ── Onglet Contrôles réglementaires ──────────────────────────────────────────
-function TabControles({ equipements }) {
-  const sorted = [...equipements]
-    .filter(e => e.date_prochain_controle)
-    .sort((a, b) => a.date_prochain_controle.localeCompare(b.date_prochain_controle));
+// ── Modale création/édition contrôle réglementaire ───────────────────────────
+const TYPES_CONTROLE_PRESETS = [
+  'Vérification électrique périodique',
+  'Contrôle installation gaz',
+  'Vérification ascenseur / élévateur',
+  'Contrôle SSI (Système Sécurité Incendie)',
+  'Vérification extincteurs',
+  'Contrôle portes coupe-feu',
+  'Diagnostic amiante',
+  'Diagnostic plomb',
+  'Contrôle accessibilité PMR',
+  'Vérification toiture / étanchéité',
+  'Contrôle chaufferie',
+  'Vérification climatisation / CTA',
+  'Contrôle groupe électrogène',
+];
 
-  const today = new Date().toISOString().split('T')[0];
-  const in90d = new Date(); in90d.setDate(in90d.getDate() + 90);
-  const in90d_str = in90d.toISOString().split('T')[0];
-  const in365d = new Date(); in365d.setDate(in365d.getDate() + 365);
-  const in365d_str = in365d.toISOString().split('T')[0];
+const STATUT_CONTROLE = {
+  a_planifier: { label: 'À planifier', bg: '#F3F4F6', color: '#374151' },
+  planifie:    { label: 'Planifié',    bg: '#DBEAFE', color: '#1D4ED8' },
+  realise:     { label: 'Réalisé',     bg: '#D1FAE5', color: '#065F46' },
+};
 
-  function rowColor(dateStr) {
-    if (dateStr < today) return '#FEE2E2';
-    if (dateStr <= in90d_str) return '#FEF3C7';
-    if (dateStr <= in365d_str) return '#DBEAFE';
-    return 'transparent';
-  }
+function ControleModal({ batimentId, controle, onClose, onSaved }) {
+  const toast = useToast();
+  const isEdit = !!controle?.id;
+  const [form, setForm] = useState({
+    type_controle:          controle?.type_controle          || '',
+    organisme:              controle?.organisme              || '',
+    periodicite_mois:       controle?.periodicite_mois       || '',
+    date_dernier_controle:  controle?.date_dernier_controle  || '',
+    date_prochain_controle: controle?.date_prochain_controle || '',
+    statut:                 controle?.statut                 || 'a_planifier',
+    commentaire:            controle?.commentaire            || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  function textColor(dateStr) {
-    if (dateStr < today) return '#991B1B';
-    if (dateStr <= in90d_str) return '#92400E';
-    if (dateStr <= in365d_str) return '#1D4ED8';
-    return '#6B7280';
-  }
+  // Auto-calcul date prochain contrôle depuis dernier + périodicité
+  const autoCompute = () => {
+    const { date_dernier_controle: dl, periodicite_mois: pm } = form;
+    if (!dl || !pm) return;
+    const d = new Date(dl + 'T00:00:00');
+    d.setMonth(d.getMonth() + parseInt(pm));
+    set('date_prochain_controle', d.toISOString().split('T')[0]);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload = {
+        ...form,
+        periodicite_mois: form.periodicite_mois ? parseInt(form.periodicite_mois) : null,
+      };
+      if (isEdit) {
+        await api.put(`/patrimoine/controles-batiment/${controle.id}`, payload);
+        toast.success('Contrôle mis à jour');
+      } else {
+        await api.post(`/patrimoine/batiments/${batimentId}/controles`, payload);
+        toast.success('Contrôle créé');
+      }
+      onSaved();
+    } catch (err) { toast.error(err.message); }
+    finally { setSaving(false); }
+  };
 
   return (
-    <div className="card overflow-hidden">
-      {sorted.length === 0 ? (
-        <div className="p-8 text-center text-text-muted text-sm">Aucun contrôle réglementaire planifié.</div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-border bg-gray-50">
-                <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Équipement</th>
-                <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Catégorie</th>
-                <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Prochain contrôle</th>
-                <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Échéance</th>
-                <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Périodicité</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((eq, i) => {
-                const bg = rowColor(eq.date_prochain_controle);
-                const color = textColor(eq.date_prochain_controle);
-                return (
-                  <tr key={eq.id} className="border-b border-border" style={{ backgroundColor: bg }}>
-                    <td className="py-2.5 px-3 text-sm font-medium text-text-main">{eq.intitule}</td>
-                    <td className="py-2.5 px-3 text-sm text-text-muted">{eq.categorie || '—'}</td>
-                    <td className="py-2.5 px-3 text-sm font-mono" style={{ color }}>{fmtDate(eq.date_prochain_controle)}</td>
-                    <td className="py-2.5 px-3">
-                      <ControleStatus date={eq.date_prochain_controle} />
-                    </td>
-                    <td className="py-2.5 px-3 text-sm text-text-muted">
-                      {eq.periodicite_controle_mois ? `${eq.periodicite_controle_mois} mois` : '—'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+          <h3 className="font-heading font-semibold text-text-main">
+            {isEdit ? 'Modifier le contrôle' : 'Nouveau contrôle réglementaire'}
+          </h3>
+          <button onClick={onClose} className="p-1.5 rounded hover:bg-gray-100 text-gray-400"><X size={16} /></button>
         </div>
+        <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-3 overflow-y-auto">
+          {/* Sélection rapide par type */}
+          {!isEdit && (
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">Sélection rapide</label>
+              <select
+                className="input w-full"
+                defaultValue=""
+                onChange={e => { if (e.target.value) set('type_controle', e.target.value); }}
+              >
+                <option value="">— Choisir un type de contrôle —</option>
+                {TYPES_CONTROLE_PRESETS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1">Type de contrôle *</label>
+            <input type="text" value={form.type_controle}
+              onChange={e => set('type_controle', e.target.value)}
+              className="input w-full" required placeholder="Vérification électrique périodique…" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">Organisme</label>
+              <input type="text" value={form.organisme}
+                onChange={e => set('organisme', e.target.value)}
+                className="input w-full" placeholder="Bureau Veritas, Apave…" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">Périodicité (mois)</label>
+              <input type="number" min="1" max="120" value={form.periodicite_mois}
+                onChange={e => set('periodicite_mois', e.target.value)}
+                className="input w-full" placeholder="12, 24, 36…" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">Dernier contrôle</label>
+              <input type="date" value={form.date_dernier_controle}
+                onChange={e => set('date_dernier_controle', e.target.value)}
+                className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                Prochain contrôle
+                {form.date_dernier_controle && form.periodicite_mois && (
+                  <button type="button" onClick={autoCompute}
+                    className="ml-2 text-blue-500 hover:underline text-xs font-normal">
+                    Auto-calculer
+                  </button>
+                )}
+              </label>
+              <input type="date" value={form.date_prochain_controle}
+                onChange={e => set('date_prochain_controle', e.target.value)}
+                className="input w-full" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1">Statut</label>
+            <select value={form.statut} onChange={e => set('statut', e.target.value)} className="input w-full">
+              {Object.entries(STATUT_CONTROLE).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1">Commentaire</label>
+            <textarea value={form.commentaire} onChange={e => set('commentaire', e.target.value)}
+              className="input w-full resize-none" rows={2} />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="submit" disabled={saving} className="btn-primary">{saving ? '…' : 'Enregistrer'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Onglet Contrôles réglementaires ──────────────────────────────────────────
+function TabControles({ batimentId }) {
+  const toast = useToast();
+  const { user } = useAuth();
+  const isReadOnly = user?.role === 'read';
+  const isAdmin    = user?.role === 'admin';
+
+  const [controles, setControles] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [modal, setModal]         = useState(null); // null | 'new' | {controle object}
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.get(`/patrimoine/batiments/${batimentId}/controles`);
+      setControles(data || []);
+    } catch (err) { toast.error(err.message); }
+    finally { setLoading(false); }
+  }, [batimentId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleDelete = async (c) => {
+    if (!window.confirm(`Supprimer « ${c.type_controle} » ?\nCette action est irréversible.`)) return;
+    try {
+      await api.delete(`/patrimoine/controles-batiment/${c.id}`);
+      toast.success('Contrôle supprimé');
+      load();
+    } catch (err) { toast.error(err.message); }
+  };
+
+  if (loading) return <Skeleton className="h-32 rounded-xl" />;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {!isReadOnly && (
+        <div className="flex justify-end">
+          <button onClick={() => setModal('new')} className="btn-primary flex items-center gap-1.5 text-sm">
+            <Plus size={14} /> Ajouter un contrôle
+          </button>
+        </div>
+      )}
+
+      <div className="card overflow-hidden">
+        {controles.length === 0 ? (
+          <div className="p-8 text-center text-text-muted text-sm">
+            Aucun contrôle réglementaire enregistré pour ce bâtiment.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-border bg-gray-50">
+                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Type de contrôle</th>
+                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Organisme</th>
+                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Dernier contrôle</th>
+                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Prochain contrôle</th>
+                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Échéance</th>
+                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Périodicité</th>
+                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Statut</th>
+                  {!isReadOnly && <th className="py-2 px-2 w-20" />}
+                </tr>
+              </thead>
+              <tbody>
+                {controles.map((c, i) => {
+                  const cfg = STATUT_CONTROLE[c.statut] || STATUT_CONTROLE.a_planifier;
+                  return (
+                    <tr key={c.id}
+                      className={`border-b border-border hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
+                      <td className="py-2.5 px-3 text-sm font-medium text-text-main max-w-xs truncate" title={c.type_controle}>
+                        {c.type_controle}
+                      </td>
+                      <td className="py-2.5 px-3 text-sm text-text-muted">{c.organisme || '—'}</td>
+                      <td className="py-2.5 px-3 text-xs font-mono text-text-muted whitespace-nowrap">
+                        {fmtDate(c.date_dernier_controle)}
+                      </td>
+                      <td className="py-2.5 px-3 text-xs font-mono text-text-muted whitespace-nowrap">
+                        {fmtDate(c.date_prochain_controle)}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <ControleStatus date={c.date_prochain_controle} />
+                      </td>
+                      <td className="py-2.5 px-3 text-sm text-text-muted">
+                        {c.periodicite_mois ? `${c.periodicite_mois} mois` : '—'}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                          style={{ backgroundColor: cfg.bg, color: cfg.color }}>
+                          {cfg.label}
+                        </span>
+                      </td>
+                      {!isReadOnly && (
+                        <td className="py-2.5 px-2">
+                          <div className="flex items-center gap-0.5">
+                            <button onClick={() => setModal(c)}
+                              className="p-1.5 rounded hover:bg-blue-50 text-blue-400 transition-colors" title="Modifier">
+                              <Edit2 size={13} />
+                            </button>
+                            {isAdmin && (
+                              <button onClick={() => handleDelete(c)}
+                                className="p-1.5 rounded hover:bg-red-50 text-red-400 transition-colors" title="Supprimer">
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {modal && (
+        <ControleModal
+          batimentId={batimentId}
+          controle={modal === 'new' ? undefined : modal}
+          onClose={() => setModal(null)}
+          onSaved={() => { setModal(null); load(); }}
+        />
       )}
     </div>
   );
@@ -659,10 +829,11 @@ function TabDocuments({ batimentId }) {
 
 // ── Page principale ───────────────────────────────────────────────────────────
 const TABS_BAT = [
-  { id: 'equipements', label: 'Équipements' },
-  { id: 'interventions', label: 'Interventions' },
-  { id: 'controles', label: 'Contrôles réglementaires' },
-  { id: 'documents', label: 'Documents' },
+  { id: 'equipements',  label: 'Équipements' },
+  { id: 'interventions',label: 'Interventions' },
+  { id: 'controles',    label: 'Contrôles réglementaires' },
+  { id: 'consommations',label: '⚡ Consommations' },
+  { id: 'documents',    label: 'Documents' },
 ];
 
 export default function BatimentPage() {
@@ -912,7 +1083,10 @@ export default function BatimentPage() {
           <TabInterventions batimentId={id} batimentNom={batiment.intitule} equipements={equipements} />
         )}
         {tab === 'controles' && (
-          <TabControles equipements={equipements} />
+          <TabControles batimentId={id} />
+        )}
+        {tab === 'consommations' && (
+          <TabConsommationsBatiment batimentId={id} />
         )}
         {tab === 'documents' && (
           <TabDocuments batimentId={id} />

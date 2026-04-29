@@ -942,6 +942,81 @@ const getDashboard = async (req, res) => {
   });
 };
 
+// ── CONTRÔLES RÉGLEMENTAIRES (rattachés au bâtiment) ─────────────────────────
+
+const getControlesBatiment = async (req, res) => {
+  const { id } = req.params;
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('controles_batiment')
+    .select('*')
+    .eq('batiment_id', id)
+    .order('date_prochain_controle', { ascending: true, nullsFirst: false });
+  if (dbErr) return error(res, dbErr.message);
+  success(res, data || []);
+};
+
+const createControleBatiment = async (req, res) => {
+  const { id } = req.params;
+  const {
+    type_controle, organisme, periodicite_mois,
+    date_dernier_controle, date_prochain_controle,
+    statut, commentaire,
+  } = req.body;
+  if (!type_controle) return error(res, 'type_controle est requis', 400);
+  const payload = {
+    batiment_id:            id,
+    type_controle:          type_controle.trim(),
+    organisme:              organisme              || null,
+    periodicite_mois:       periodicite_mois       ? parseInt(periodicite_mois)  : null,
+    date_dernier_controle:  date_dernier_controle  || null,
+    date_prochain_controle: date_prochain_controle || null,
+    statut:                 statut                 || 'a_planifier',
+    commentaire:            commentaire            || null,
+  };
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('controles_batiment')
+    .insert([payload])
+    .select()
+    .single();
+  if (dbErr) return error(res, dbErr.message);
+  success(res, data, 201);
+};
+
+const updateControleBatiment = async (req, res) => {
+  const { id } = req.params;
+  const {
+    type_controle, organisme, periodicite_mois,
+    date_dernier_controle, date_prochain_controle,
+    statut, commentaire,
+  } = req.body;
+  const payload = {};
+  if (type_controle          !== undefined) payload.type_controle          = type_controle.trim();
+  if (organisme              !== undefined) payload.organisme              = organisme              || null;
+  if (periodicite_mois       !== undefined) payload.periodicite_mois       = periodicite_mois       ? parseInt(periodicite_mois) : null;
+  if (date_dernier_controle  !== undefined) payload.date_dernier_controle  = date_dernier_controle  || null;
+  if (date_prochain_controle !== undefined) payload.date_prochain_controle = date_prochain_controle || null;
+  if (statut                 !== undefined) payload.statut                 = statut                 || 'a_planifier';
+  if (commentaire            !== undefined) payload.commentaire            = commentaire            || null;
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('controles_batiment')
+    .update(payload)
+    .eq('id', id)
+    .select()
+    .single();
+  if (dbErr) return error(res, dbErr.message);
+  success(res, data);
+};
+
+const deleteControleBatiment = async (req, res) => {
+  const { id } = req.params;
+  const { error: dbErr } = await supabaseAdmin
+    .from('controles_batiment')
+    .delete()
+    .eq('id', id);
+  if (dbErr) return error(res, dbErr.message);
+  success(res, { deleted: true });
+};
+
 module.exports = {
   getVoirie, createTroncon, getTroncon, updateTroncon, deleteTroncon,
   getMarches, createMarche, getMarche, updateMarche, deleteMarche,
@@ -954,5 +1029,6 @@ module.exports = {
   getBatiments, createBatiment, getBatiment, updateBatiment,
   getEquipements, getAllEquipements, createEquipement, updateEquipement, deleteEquipement,
   getInterventions, createIntervention, getIntervention, updateIntervention, deleteIntervention,
+  getControlesBatiment, createControleBatiment, updateControleBatiment, deleteControleBatiment,
   getDashboard,
 };
