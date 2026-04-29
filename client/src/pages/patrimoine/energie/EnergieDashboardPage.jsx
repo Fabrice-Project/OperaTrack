@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Download, Zap, Building2, Lightbulb, TrendingDown, TrendingUp, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Download, Zap, Building2, Lightbulb, TrendingDown, TrendingUp, AlertTriangle, CheckCircle, RefreshCw, BarChart2 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, PieChart, Pie, Legend,
@@ -48,7 +49,8 @@ function KpiCard({ icon: Icon, label, value, sub, color = '#1A3A5C', bg = 'bg-gr
 
 // ── Composant principal ───────────────────────────────────────────────────────
 export default function EnergieDashboardPage() {
-  const toast  = useToast();
+  const toast    = useToast();
+  const navigate = useNavigate();
   const [anneeN, setAnneeN] = useState(new Date().getFullYear() - 1);
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(true);
@@ -118,6 +120,10 @@ export default function EnergieDashboardPage() {
             <button onClick={load} disabled={loading}
               className="btn-secondary text-sm flex items-center gap-1.5">
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Actualiser
+            </button>
+            <button onClick={() => navigate('/patrimoine/energie/rapport')}
+              className="btn-secondary text-sm flex items-center gap-1.5">
+              <BarChart2 size={14} /> Rapport de tendances
             </button>
             <button onClick={handleExportOperat} disabled={exporting}
               className="btn-primary text-sm flex items-center gap-1.5">

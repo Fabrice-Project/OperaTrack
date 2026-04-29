@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
-import { Plus, Route, Lightbulb, Building2, X, FileDown, Sheet, Briefcase, ChevronDown, ChevronRight, RefreshCw, ClipboardList, Edit2 } from 'lucide-react';
+import { Plus, Route, Lightbulb, Building2, X, FileDown, Sheet, Briefcase, ChevronDown, ChevronRight, RefreshCw, ClipboardList, Edit2, Search, Undo2, Trash2 } from 'lucide-react';
 import { RapportModal } from '../../components/patrimoine/RapportModal';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -77,22 +77,93 @@ function fmtEur(v) {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
 }
 
+// ── Helpers Leaflet pour la modale de création ────────────────────────────────
+function DrawClickHandler({ onMapClick }) {
+  useMapEvents({ click: (e) => onMapClick(e.latlng) });
+  return null;
+}
+
+function FlyToLocation({ target }) {
+  const map = useMap();
+  const prevRef = useRef(null);
+  useEffect(() => {
+    if (target && target !== prevRef.current) {
+      map.flyTo(target, 17, { duration: 1.2 });
+      prevRef.current = target;
+    }
+  }, [target, map]);
+  return null;
+}
+
+// Calcul de longueur Haversine (mètres)
+function haversineTotal(pts) {
+  if (!pts || pts.length < 2) return 0;
+  const R = 6371000;
+  let total = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [lat1, lon1] = pts[i];
+    const [lat2, lon2] = pts[i + 1];
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2
+      + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    total += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+  return Math.round(total);
+}
+
 // Modale création tronçon
 function CreateTronconModal({ onClose, onSaved }) {
   const toast = useToast();
-  const [form, setForm] = useState({ intitule: '', etat_general: 'bon', longueur_ml: '', largeur_m: '', revetement: '', annee_derniere_refection: '' });
-  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    intitule: '', etat_general: 'bon', longueur_ml: '',
+    largeur_m: '', revetement: '', annee_derniere_refection: '',
+  });
+  const [saving,    setSaving]    = useState(false);
+  const [address,   setAddress]   = useState('');
+  const [geocoding, setGeocoding] = useState(false);
+  const [flyTarget, setFlyTarget] = useState(null);
+  const [drawPoints, setDrawPoints] = useState([]);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const computedLength = useMemo(() => haversineTotal(drawPoints), [drawPoints]);
+
+  const handleMapClick = useCallback((latlng) => {
+    setDrawPoints(pts => [...pts, [latlng.lat, latlng.lng]]);
+  }, []);
+
+  const geocode = async () => {
+    const q = address.trim();
+    if (!q) return;
+    setGeocoding(true);
+    try {
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
+        { headers: { 'Accept-Language': 'fr' } }
+      );
+      const d = await r.json();
+      if (d.length > 0) {
+        setFlyTarget([parseFloat(d[0].lat), parseFloat(d[0].lon)]);
+      } else {
+        toast.error('Adresse introuvable');
+      }
+    } catch { toast.error('Erreur de géocodage'); }
+    finally { setGeocoding(false); }
+  };
+
+  const handleSubmit = async () => {
+    if (!form.intitule.trim()) { toast.error('L\'intitulé est requis'); return; }
     setSaving(true);
     try {
+      const longueur = form.longueur_ml
+        ? parseFloat(form.longueur_ml)
+        : (computedLength > 0 ? computedLength : null);
       await api.post('/patrimoine/voirie', {
         ...form,
-        longueur_ml: form.longueur_ml ? parseFloat(form.longueur_ml) : null,
-        largeur_m: form.largeur_m ? parseFloat(form.largeur_m) : null,
+        longueur_ml:              longueur,
+        largeur_m:                form.largeur_m ? parseFloat(form.largeur_m) : null,
         annee_derniere_refection: form.annee_derniere_refection ? parseInt(form.annee_derniere_refection) : null,
+        geom_points:              drawPoints.length >= 2 ? drawPoints : null,
       });
       toast.success('Tronçon créé');
       onSaved();
@@ -101,50 +172,190 @@ function CreateTronconModal({ onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h3 className="font-heading font-semibold text-text-main">Nouveau tronçon</h3>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-3">
+      <div className="bg-white rounded-xl shadow-xl w-full flex flex-col"
+        style={{ maxWidth: '1100px', height: '88vh' }}>
+
+        {/* En-tête */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+          <h3 className="font-heading font-semibold text-text-main">Nouveau tronçon de voirie</h3>
           <button onClick={onClose} className="p-1.5 rounded hover:bg-gray-100 text-gray-400"><X size={16} /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-3">
-          <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Intitulé *</label>
-            <input type="text" value={form.intitule} onChange={e => set('intitule', e.target.value)} className="input w-full" required />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+
+        {/* Corps : formulaire + carte */}
+        <div className="flex flex-1 overflow-hidden">
+
+          {/* ── Formulaire (gauche) ─────────────────────────────────────────── */}
+          <div className="w-72 shrink-0 border-r border-border flex flex-col overflow-y-auto p-4 gap-3">
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Longueur (m)</label>
-              <input type="number" step="0.1" min="0" value={form.longueur_ml} onChange={e => set('longueur_ml', e.target.value)} className="input w-full" />
+              <label className="block text-xs font-medium text-text-muted mb-1">Intitulé *</label>
+              <input type="text" value={form.intitule}
+                onChange={e => set('intitule', e.target.value)}
+                className="input w-full" placeholder="Rue de la Paix…" autoFocus />
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Largeur (m)</label>
-              <input type="number" step="0.1" min="0" value={form.largeur_m} onChange={e => set('largeur_m', e.target.value)} className="input w-full" />
+              <label className="block text-xs font-medium text-text-muted mb-1">État</label>
+              <select value={form.etat_general} onChange={e => set('etat_general', e.target.value)} className="input w-full">
+                {[['bon','Bon'],['moyen','Moyen'],['degrade','Dégradé'],['tres_degrade','Très dégradé']].map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-text-muted mb-1">Revêtement</label>
-              <input type="text" value={form.revetement} onChange={e => set('revetement', e.target.value)} className="input w-full" placeholder="Enrobé, béton, pavés..." />
+              <input type="text" value={form.revetement}
+                onChange={e => set('revetement', e.target.value)}
+                className="input w-full" placeholder="Enrobé, béton, pavés…" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">Largeur (m)</label>
+                <input type="number" step="0.1" min="0" value={form.largeur_m}
+                  onChange={e => set('largeur_m', e.target.value)} className="input w-full" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">Dernière réfection</label>
+                <input type="number" min="1950" max="2030" value={form.annee_derniere_refection}
+                  onChange={e => set('annee_derniere_refection', e.target.value)}
+                  className="input w-full" placeholder="2019" />
+              </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Année dernière réfection</label>
-              <input type="number" min="1950" max="2030" value={form.annee_derniere_refection} onChange={e => set('annee_derniere_refection', e.target.value)} className="input w-full" placeholder="ex : 2019" />
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                Longueur (m)
+                {computedLength > 0 && !form.longueur_ml && (
+                  <span className="ml-1 text-blue-500">— auto : {computedLength} m</span>
+                )}
+              </label>
+              <input type="number" step="0.1" min="0" value={form.longueur_ml}
+                onChange={e => set('longueur_ml', e.target.value)}
+                className="input w-full"
+                placeholder={computedLength > 0 ? `${computedLength} m (tracé)` : 'ex : 120'} />
+            </div>
+
+            {/* Récap tracé */}
+            <div className="mt-auto pt-3 border-t border-border text-xs text-text-muted space-y-1">
+              <div className="flex justify-between">
+                <span>Points tracés</span>
+                <span className="font-mono font-semibold text-text-main">{drawPoints.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Longueur calculée</span>
+                <span className="font-mono font-semibold text-text-main">
+                  {computedLength > 0 ? `${computedLength} m` : '—'}
+                </span>
+              </div>
+              {drawPoints.length < 2 && (
+                <p className="text-xs text-orange-500 pt-1">
+                  Tracez au moins 2 points sur la carte, ou créez sans tracé.
+                </p>
+              )}
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">État</label>
-            <select value={form.etat_general} onChange={e => set('etat_general', e.target.value)} className="input w-full">
-              {Object.entries(ETAT_LABELS).filter(([k]) => ['bon','moyen','degrade','tres_degrade'].includes(k)).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
+
+          {/* ── Carte (droite) ───────────────────────────────────────────────── */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+
+            {/* Barre recherche + contrôles tracé */}
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-gray-50 shrink-0 flex-wrap">
+              <div className="flex flex-1 min-w-48 items-center gap-1">
+                <input
+                  type="text"
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && geocode()}
+                  className="input flex-1 text-sm"
+                  placeholder="Rechercher une adresse…"
+                />
+                <button
+                  onClick={geocode}
+                  disabled={geocoding || !address.trim()}
+                  className="btn-secondary px-2.5 py-1.5 flex items-center gap-1 text-sm"
+                  title="Centrer la carte sur cette adresse"
+                >
+                  <Search size={13} />
+                  {geocoding ? '…' : 'Aller'}
+                </button>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setDrawPoints(p => p.slice(0, -1))}
+                  disabled={drawPoints.length === 0}
+                  className="btn-secondary px-2 py-1.5 flex items-center gap-1 text-xs disabled:opacity-40"
+                  title="Annuler le dernier point"
+                >
+                  <Undo2 size={12} /> Annuler
+                </button>
+                <button
+                  onClick={() => setDrawPoints([])}
+                  disabled={drawPoints.length === 0}
+                  className="btn-secondary px-2 py-1.5 flex items-center gap-1 text-xs disabled:opacity-40 hover:text-red-500"
+                  title="Effacer tout le tracé"
+                >
+                  <Trash2 size={12} /> Effacer
+                </button>
+              </div>
+            </div>
+
+            {/* Carte Leaflet */}
+            <div className="flex-1 relative" style={{ cursor: 'crosshair' }}>
+              <MapContainer
+                center={[50.32, 3.39]}
+                zoom={14}
+                className="h-full w-full"
+                style={{ cursor: 'crosshair' }}
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <DrawClickHandler onMapClick={handleMapClick} />
+                {flyTarget && <FlyToLocation target={flyTarget} />}
+
+                {/* Polyline du tracé */}
+                {drawPoints.length >= 2 && (
+                  <Polyline positions={drawPoints} color="#1A3A5C" weight={4} opacity={0.85} />
+                )}
+
+                {/* Points du tracé */}
+                {drawPoints.map((pt, i) => (
+                  <CircleMarker key={i} center={pt} radius={i === 0 || i === drawPoints.length - 1 ? 7 : 5}
+                    pathOptions={{
+                      color: '#fff', fillColor: i === 0 ? '#1E7E45' : i === drawPoints.length - 1 ? '#C0392B' : '#1A3A5C',
+                      fillOpacity: 1, weight: 2,
+                    }}
+                  />
+                ))}
+              </MapContainer>
+
+              {/* Aide overlay */}
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1000]
+                              bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 text-xs
+                              text-text-muted shadow pointer-events-none">
+                {drawPoints.length === 0
+                  ? '🖱 Cliquez sur la carte pour commencer le tracé'
+                  : `${drawPoints.length} point${drawPoints.length > 1 ? 's' : ''} — ${computedLength} m`}
+              </div>
+            </div>
           </div>
-          <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
-            <button type="submit" disabled={saving} className="btn-primary">{saving ? 'En cours...' : 'Créer'}</button>
+        </div>
+
+        {/* Pied de modale */}
+        <div className="flex items-center justify-between px-5 py-3 border-t border-border shrink-0 bg-gray-50">
+          <p className="text-xs text-text-muted">
+            Le tracé peut être modifié après la création depuis la fiche du tronçon.
+          </p>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="btn-secondary">Annuler</button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving || !form.intitule.trim()}
+              className="btn-primary"
+            >
+              {saving ? 'Création…' : 'Créer le tronçon'}
+            </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

@@ -74,6 +74,7 @@ router.delete('/interventions/:id', requireRole('admin'), ctrl.deleteInterventio
 
 // ── Énergie — Dashboard global ────────────────────────────────────────────────
 router.get('/energie/dashboard', ectrl.getEnergieDashboard);
+router.get('/energie/rapport',   ectrl.getRapportEnergie);
 
 // ── Énergie — Compteurs ───────────────────────────────────────────────────────
 router.get('/compteurs',     ectrl.getCompteurs);

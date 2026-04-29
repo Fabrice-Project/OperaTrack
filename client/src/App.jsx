@@ -16,6 +16,7 @@ import PointLumineuxPage from './pages/patrimoine/eclairage/PointLumineuxPage';
 import ArmoirePage from './pages/patrimoine/eclairage/ArmoirePage';
 import BatimentPage from './pages/patrimoine/batiments/BatimentPage';
 import EnergieDashboardPage from './pages/patrimoine/energie/EnergieDashboardPage';
+import RapportEnergiePage from './pages/patrimoine/energie/RapportEnergiePage';
 
 const WRITE_ROLES = ['write', 'charge_operation', 'compta'];
 
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="/patrimoine/eclairage/:id" element={<ProtectedRoute><PointLumineuxPage /></ProtectedRoute>} />
             <Route path="/patrimoine/batiments/:id" element={<ProtectedRoute><BatimentPage /></ProtectedRoute>} />
             <Route path="/patrimoine/energie" element={<ProtectedRoute><EnergieDashboardPage /></ProtectedRoute>} />
+            <Route path="/patrimoine/energie/rapport" element={<ProtectedRoute><RapportEnergiePage /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </ToastProvider>

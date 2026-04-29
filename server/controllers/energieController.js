@@ -583,11 +583,114 @@ const exportOperat = async (req, res) => {
   res.send('﻿' + csvLines.join('\r\n'));
 };
 
+// ── RAPPORT ÉNERGIE MULTI-ANNÉES ─────────────────────────────────────────────
+
+const getRapportEnergie = async (req, res) => {
+  const { annee_debut, annee_fin } = req.query;
+  const fin   = parseInt(annee_fin)   || new Date().getFullYear() - 1;
+  const debut = parseInt(annee_debut) || fin - 2;
+  const annees = Array.from({ length: Math.min(fin - debut + 1, 6) }, (_, i) => debut + i);
+
+  const [
+    { data: batiments },
+    { data: compteurs },
+    { data: decrets },
+    { data: releves },
+  ] = await Promise.all([
+    supabaseAdmin.from('batiments').select('id, intitule, surface_plancher_m2').order('intitule'),
+    supabaseAdmin.from('compteurs').select('*').eq('actif', true),
+    supabaseAdmin.from('decret_tertiaire').select('*'),
+    supabaseAdmin.from('releves_consommation')
+      .select('compteur_id, consommation, montant_ht, periode')
+      .gte('periode', `${debut}-01-01`)
+      .lte('periode', `${fin}-12-31`),
+  ]);
+
+  const cptMap = {};
+  (compteurs || []).forEach(c => { cptMap[c.id] = c; });
+  const dtMap = {};
+  (decrets || []).forEach(d => { dtMap[d.batiment_id] = d; });
+
+  // Accumulateurs : par bâtiment × année × fluide, et global
+  const byBat   = {};  // batiment_id → annee → { kwef, montant, fluides:{fluide→conso} }
+  const byAnnee = {};  // annee → { kwef, montant, fluides:{fluide→conso} }
+  const mensuelGlobal = {};  // mois(01-12) → { kwef, montant, fluides:{fluide→conso} }
+  const mensuelByBat  = {};  // batiment_id → mois → { kwef, fluides }
+
+  (releves || []).forEach(r => {
+    const cpt = cptMap[r.compteur_id];
+    if (!cpt || !cpt.batiment_id) return;
+    const parts = (r.periode || '').split('-');
+    if (parts.length < 2) return;
+    const a    = parseInt(parts[0]);
+    const mois = parts[1];
+    const conso   = parseFloat(r.consommation) || 0;
+    const montant = parseFloat(r.montant_ht)   || 0;
+    const kwef    = toKWhef(conso, cpt.fluide, cpt.unite) || 0;
+    const bid     = cpt.batiment_id;
+    const fl      = cpt.fluide;
+
+    // Par bâtiment × année
+    if (!byBat[bid]) byBat[bid] = {};
+    if (!byBat[bid][a]) byBat[bid][a] = { kwef: 0, montant: 0, fluides: {} };
+    byBat[bid][a].kwef    += kwef;
+    byBat[bid][a].montant += montant;
+    byBat[bid][a].fluides[fl] = (byBat[bid][a].fluides[fl] || 0) + conso;
+
+    // Global × année
+    if (!byAnnee[a]) byAnnee[a] = { kwef: 0, montant: 0, fluides: {} };
+    byAnnee[a].kwef    += kwef;
+    byAnnee[a].montant += montant;
+    byAnnee[a].fluides[fl] = (byAnnee[a].fluides[fl] || 0) + conso;
+
+    // Mensuel global (dernière année uniquement)
+    if (a === fin) {
+      if (!mensuelGlobal[mois]) mensuelGlobal[mois] = { kwef: 0, montant: 0, fluides: {} };
+      mensuelGlobal[mois].kwef    += kwef;
+      mensuelGlobal[mois].montant += montant;
+      mensuelGlobal[mois].fluides[fl] = (mensuelGlobal[mois].fluides[fl] || 0) + conso;
+
+      if (!mensuelByBat[bid]) mensuelByBat[bid] = {};
+      if (!mensuelByBat[bid][mois]) mensuelByBat[bid][mois] = { kwef: 0, fluides: {} };
+      mensuelByBat[bid][mois].kwef += kwef;
+      mensuelByBat[bid][mois].fluides[fl] = (mensuelByBat[bid][mois].fluides[fl] || 0) + conso;
+    }
+  });
+
+  // Construire la réponse bâtiments
+  const batimentsFormatted = (batiments || [])
+    .filter(b => byBat[b.id])
+    .map(b => {
+      const surface = parseFloat(b.surface_plancher_m2) || 0;
+      const dt = dtMap[b.id] || null;
+      const annuel = {};
+      annees.forEach(a => {
+        const d = byBat[b.id]?.[a] || { kwef: 0, montant: 0, fluides: {} };
+        annuel[a] = {
+          kwef:      Math.round(d.kwef),
+          montant:   Math.round(d.montant),
+          intensite: surface > 0 ? Math.round(d.kwef / surface) : null,
+          fluides:   d.fluides,
+        };
+      });
+      return { id: b.id, intitule: b.intitule, surface, annuel, mensuel: mensuelByBat[b.id] || {}, decret: dt };
+    });
+
+  // Global formaté
+  const globalFormatted = {};
+  annees.forEach(a => {
+    const d = byAnnee[a] || { kwef: 0, montant: 0, fluides: {} };
+    globalFormatted[a] = { kwef: Math.round(d.kwef), montant: Math.round(d.montant), fluides: d.fluides };
+  });
+
+  success(res, { annees, annee_fin: fin, batiments: batimentsFormatted, global: globalFormatted, mensuelGlobal });
+};
+
 module.exports = {
   getCompteurs, createCompteur, updateCompteur, deleteCompteur,
   getReleves, createReleve, updateReleve, deleteReleve, importCSV,
   getSyntheseEnergieBatiment, getSyntheseEnergieArmoire,
-  getEnergieDashboard,
+  getEnergieDashboard, getRapportEnergie,
   getDecretTertiaire, upsertDecretTertiaire,
   exportOperat,
 };

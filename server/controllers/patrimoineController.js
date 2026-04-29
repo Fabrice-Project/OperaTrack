@@ -23,10 +23,10 @@ const getVoirie = async (req, res) => {
 };
 
 const createTroncon = async (req, res) => {
-  const { intitule, categorie, longueur_ml, largeur_m, revetement, annee_derniere_refection, etat_general, latitude, longitude, commentaire } = req.body;
+  const { intitule, categorie, longueur_ml, largeur_m, revetement, annee_derniere_refection, etat_general, latitude, longitude, commentaire, geom_points } = req.body;
   const { data, error: dbErr } = await supabaseAdmin
     .from('troncons_voirie')
-    .insert([{ intitule, categorie, longueur_ml, largeur_m, revetement, annee_derniere_refection, etat_general: etat_general || 'moyen', latitude, longitude, commentaire }])
+    .insert([{ intitule, categorie, longueur_ml, largeur_m, revetement, annee_derniere_refection, etat_general: etat_general || 'moyen', latitude, longitude, commentaire, geom_points: geom_points || null }])
     .select()
     .single();
   if (dbErr) return error(res, dbErr.message);
