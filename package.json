@@ -9,6 +9,9 @@
     "start":      "node server/index.js",
     "seed:users": "node server/db/seed-users.js"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "archiver":              "^7.0.1",
