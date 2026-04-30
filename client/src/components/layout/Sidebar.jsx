@@ -2,14 +2,26 @@ import { NavLink, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, FolderOpen, BarChart3, Settings, Building2, Route, Lightbulb, Zap } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
+// Rôles exclus de la section Paramètres (admin uniquement pour l'écriture)
+const HIDE_SETTINGS_ROLES = ['write', 'charge_operation', 'compta', 'administratif', 'gestionnaire_patrimonial'];
+// Rôles sans accès au Module A (Opérations / Mandat)
+const HIDE_MODULE_A_ROLES = ['gestionnaire_patrimonial'];
+
 const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, label: 'Tableau de bord', exact: true },
-  { to: '/operations', icon: FolderOpen, label: 'Opérations', children: [
-    { to: '/operations', label: 'Toutes les opérations', exact: true },
-    { to: '/operations/new', label: 'Nouvelle opération' }
-  ]},
-  { to: '/mandat', icon: BarChart3, label: 'Résilience & Mandat' },
-  { to: '/settings', icon: Settings, label: 'Paramètres', hideForRoles: ['write', 'charge_operation', 'compta'] },
+  { to: '/operations', icon: FolderOpen, label: 'Opérations',
+    hideForRoles: HIDE_MODULE_A_ROLES,
+    children: [
+      { to: '/operations', label: 'Toutes les opérations', exact: true },
+      { to: '/operations/new', label: 'Nouvelle opération' }
+    ]
+  },
+  { to: '/mandat', icon: BarChart3, label: 'Résilience & Mandat',
+    hideForRoles: HIDE_MODULE_A_ROLES,
+  },
+  { to: '/settings', icon: Settings, label: 'Paramètres',
+    hideForRoles: HIDE_SETTINGS_ROLES,
+  },
 ];
 
 const PATRIMOINE_ITEMS = [
@@ -22,15 +34,13 @@ const PATRIMOINE_ITEMS = [
 export function Sidebar() {
   const location = useLocation();
   const { user } = useAuth();
-  const userRole = user?.role || 'read';
-  const isOpsActive = location.pathname.startsWith('/operations');
+  const userRole = user?.role || 'directeur';
+  const isOpsActive       = location.pathname.startsWith('/operations');
   const isPatrimoineActive = location.pathname.startsWith('/patrimoine');
 
   const navItems = NAV_ITEMS.filter(item =>
     !item.hideForRoles || !item.hideForRoles.includes(userRole)
   );
-
-  const showPatrimoine = userRole !== 'compta';
 
   return (
     <aside
@@ -54,40 +64,59 @@ export function Sidebar() {
           <NavSection key={item.to} item={item} isOpsActive={isOpsActive} />
         ))}
 
-        {/* Section Gestion Patrimoniale */}
-        {showPatrimoine && (
-          <div className="mt-4">
-            <div className="px-5 py-2 text-xs font-semibold text-white/40 uppercase tracking-wider">
-              Gestion Patrimoniale
-            </div>
-            {PATRIMOINE_ITEMS.map(item => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-5 py-2.5 mx-2 rounded-lg mb-0.5 transition-colors ${
-                    isActive ? '' : 'hover:bg-white/5'
-                  }`
-                }
-                style={({ isActive }) => isActive ? {
-                  backgroundColor: 'rgba(255,255,255,0.12)',
-                  borderLeft: '3px solid #E8920A',
-                  paddingLeft: '17px',
-                } : {}}
-              >
-                <item.icon size={18} className="text-white shrink-0" />
-                <span className="text-white text-sm font-medium">{item.label}</span>
-              </NavLink>
-            ))}
+        {/* Section Gestion Patrimoniale — visible pour tous les profils */}
+        <div className="mt-4">
+          <div className="px-5 py-2 text-xs font-semibold text-white/40 uppercase tracking-wider">
+            Gestion Patrimoniale
           </div>
-        )}
+          {PATRIMOINE_ITEMS.map(item => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-5 py-2.5 mx-2 rounded-lg mb-0.5 transition-colors ${
+                  isActive ? '' : 'hover:bg-white/5'
+                }`
+              }
+              style={({ isActive }) => isActive ? {
+                backgroundColor: 'rgba(255,255,255,0.12)',
+                borderLeft: '3px solid #E8920A',
+                paddingLeft: '17px',
+              } : {}}
+            >
+              <item.icon size={18} className="text-white shrink-0" />
+              <span className="text-white text-sm font-medium">{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
       </nav>
 
-      {/* Footer */}
+      {/* Footer — affiche le profil courant */}
       <div className="px-5 py-4 border-t border-white/10">
-        <div className="text-white/30 text-xs">Phase 5b — Avril 2026</div>
+        <ProfilBadge role={userRole} />
       </div>
     </aside>
+  );
+}
+
+// Badge profil en pied de sidebar
+const PROFIL_LABELS = {
+  administrateur:             'Administrateur',
+  admin:                      'Administrateur',
+  charge_operation:           'Chargé d\'opération',
+  write:                      'Chargé d\'opération',
+  gestionnaire_patrimonial:   'Gestionnaire patrimonial',
+  directeur:                  'Directeur / DGA',
+  read:                       'Directeur / DGA',
+  administratif:              'Administratif',
+  compta:                     'Administratif',
+};
+
+function ProfilBadge({ role }) {
+  return (
+    <div className="text-white/40 text-xs truncate">
+      {PROFIL_LABELS[role] || role}
+    </div>
   );
 }
 

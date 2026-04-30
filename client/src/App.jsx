@@ -18,7 +18,7 @@ import BatimentPage from './pages/patrimoine/batiments/BatimentPage';
 import EnergieDashboardPage from './pages/patrimoine/energie/EnergieDashboardPage';
 import RapportEnergiePage from './pages/patrimoine/energie/RapportEnergiePage';
 
-const WRITE_ROLES = ['write', 'charge_operation', 'compta'];
+const WRITE_ROLES = ['write', 'charge_operation', 'compta', 'administratif', 'gestionnaire_patrimonial'];
 
 function ProtectedRoute({ children, hideForWrite = false }) {
   const { user, loading } = useAuth();

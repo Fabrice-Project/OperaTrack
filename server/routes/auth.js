@@ -22,7 +22,8 @@ router.post('/login',
 
     if (authError) return error(res, 'Identifiants incorrects', 401);
 
-    const role = data.user?.user_metadata?.role || 'read';
+    const role = data.user?.user_metadata?.role || 'directeur';
+    const habilitation_patrimoniale = data.user?.user_metadata?.habilitation_patrimoniale === true;
 
     success(res, {
       access_token: data.session.access_token,
@@ -32,6 +33,7 @@ router.post('/login',
         id: data.user.id,
         email: data.user.email,
         role,
+        habilitation_patrimoniale,
         full_name: data.user.user_metadata?.full_name || data.user.email
       }
     });
@@ -57,6 +59,7 @@ router.get('/me', authenticate, async (req, res) => {
     id: req.user.id,
     email: req.user.email,
     role: req.userRole,
+    habilitation_patrimoniale: req.habilitationPatrimoniale,
     full_name: req.user.user_metadata?.full_name || req.user.email
   });
 });

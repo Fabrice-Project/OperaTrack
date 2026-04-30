@@ -14,13 +14,39 @@ const TABS = [
   { id: 'config',      label: 'Configuration',         icon: Settings2 },
 ];
 
-const ROLE_LABELS = { admin: 'Administrateur', write: 'Éditeur', read: 'Directeur', compta: 'Administratif / Comptable' };
-const ROLE_COLORS = { admin: '#C0392B', write: '#2563EB', read: '#1E7E45', compta: '#7B3FA0' };
+const ROLE_LABELS = {
+  administrateur:           'Administrateur',
+  admin:                    'Administrateur',
+  charge_operation:         'Chargé d\'opération',
+  write:                    'Chargé d\'opération',
+  gestionnaire_patrimonial: 'Gestionnaire patrimonial',
+  directeur:                'Directeur / DGA / Élus',
+  read:                     'Directeur / DGA / Élus',
+  administratif:            'Administratif',
+  compta:                   'Administratif',
+};
+const ROLE_COLORS = {
+  administrateur: '#C0392B', admin: '#C0392B',
+  charge_operation: '#2563EB', write: '#2563EB',
+  gestionnaire_patrimonial: '#0E7490',
+  directeur: '#1E7E45', read: '#1E7E45',
+  administratif: '#7B3FA0', compta: '#7B3FA0',
+};
+
+// Options du menu déroulant (nouveaux noms)
+const ROLE_OPTIONS = [
+  { value: 'administrateur',           label: 'Administrateur' },
+  { value: 'charge_operation',         label: 'Chargé d\'opération' },
+  { value: 'gestionnaire_patrimonial', label: 'Gestionnaire patrimonial' },
+  { value: 'directeur',                label: 'Directeur / DGA / Élus' },
+  { value: 'administratif',            label: 'Administratif' },
+];
 
 function RoleBadge({ role }) {
+  const color = ROLE_COLORS[role] || '#6B7280';
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-      style={{ backgroundColor: ROLE_COLORS[role] + '18', color: ROLE_COLORS[role] }}>
+      style={{ backgroundColor: color + '18', color }}>
       {ROLE_LABELS[role] || role}
     </span>
   );
@@ -109,7 +135,8 @@ function TabUsers() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
   const [invitePassword, setInvitePassword] = useState('');
-  const [inviteRole, setInviteRole] = useState('read');
+  const [inviteRole, setInviteRole] = useState('directeur');
+  const [inviteHabilitation, setInviteHabilitation] = useState(false);
   const [inviting, setInviting] = useState(false);
 
   const load = async () => {
@@ -127,24 +154,36 @@ function TabUsers() {
     setInviting(true);
     try {
       await api.post('/settings/users/invite', {
-        email:     inviteEmail.trim(),
-        full_name: inviteName.trim(),
-        password:  invitePassword,
-        role:      inviteRole,
+        email:                    inviteEmail.trim(),
+        full_name:                inviteName.trim(),
+        password:                 invitePassword,
+        role:                     inviteRole,
+        habilitation_patrimoniale: inviteRole === 'charge_operation' ? inviteHabilitation : false,
       });
       toast.success(`Compte créé pour ${inviteName.trim() || inviteEmail}`);
       setInviteEmail('');
       setInviteName('');
       setInvitePassword('');
+      setInviteHabilitation(false);
       load();
     } catch (err) { toast.error(err.message); }
     finally { setInviting(false); }
   };
 
-  const handleRoleChange = async (userId, role) => {
+  const handleRoleChange = async (userId, role, currentHabilitation) => {
     try {
-      await api.put(`/settings/users/${userId}`, { role });
-      toast.success('Rôle mis à jour');
+      // Si on change vers un profil autre que charge_operation, forcer habilitation à false
+      const habilitation_patrimoniale = role === 'charge_operation' ? currentHabilitation : false;
+      await api.put(`/settings/users/${userId}`, { role, habilitation_patrimoniale });
+      toast.success('Profil mis à jour');
+      load();
+    } catch (err) { toast.error(err.message); }
+  };
+
+  const handleHabilitationChange = async (userId, habilitation_patrimoniale) => {
+    try {
+      await api.put(`/settings/users/${userId}`, { habilitation_patrimoniale });
+      toast.success(habilitation_patrimoniale ? 'Habilitation patrimoniale activée' : 'Habilitation patrimoniale retirée');
       load();
     } catch (err) { toast.error(err.message); }
   };
@@ -197,13 +236,29 @@ function TabUsers() {
             </div>
             <div>
               <label className="block text-xs font-medium text-text-muted mb-1">Profil</label>
-              <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} className="input w-full">
-                <option value="read">Directeur</option>
-                <option value="write">Chargé d'opération</option>
-                <option value="compta">Administratif / Comptable</option>
-                <option value="admin">Administrateur</option>
+              <select value={inviteRole} onChange={e => { setInviteRole(e.target.value); setInviteHabilitation(false); }} className="input w-full">
+                {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
+            {/* Habilitation patrimoniale — visible uniquement pour charge_operation */}
+            {inviteRole === 'charge_operation' && (
+              <div className="sm:col-span-2">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={inviteHabilitation}
+                    onChange={e => setInviteHabilitation(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-text-main">Habilitation patrimoniale</span>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      Permet à ce chargé d'opération de créer et modifier les fiches du module Gestion patrimoniale
+                    </p>
+                  </div>
+                </label>
+              </div>
+            )}
             <div className="sm:col-span-2 flex justify-end">
               <button type="submit" disabled={inviting} className="btn-primary flex items-center gap-1.5">
                 <Plus size={14} /> {inviting ? 'Création…' : 'Créer le compte'}
@@ -218,7 +273,8 @@ function TabUsers() {
           <thead>
             <tr className="border-b border-border bg-gray-50">
               <th className="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Utilisateur</th>
-              <th className="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Rôle</th>
+              <th className="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Profil</th>
+              <th className="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Habilitation</th>
               <th className="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Statut</th>
               {isAdmin && <th className="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wide text-right">Actions</th>}
             </tr>
@@ -239,13 +295,36 @@ function TabUsers() {
                 </td>
                 <td className="px-4 py-3">
                   {isAdmin ? (
-                    <select value={u.role} onChange={e => handleRoleChange(u.id, e.target.value)} className="input text-xs py-1 w-44">
-                      <option value="read">Directeur</option>
-                      <option value="write">Éditeur</option>
-                      <option value="compta">Administratif / Comptable</option>
-                      <option value="admin">Administrateur</option>
+                    <select
+                      value={u.role}
+                      onChange={e => handleRoleChange(u.id, e.target.value, u.habilitation_patrimoniale)}
+                      className="input text-xs py-1 w-52"
+                    >
+                      {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   ) : <RoleBadge role={u.role} />}
+                </td>
+                {/* Habilitation patrimoniale — visible seulement pour charge_operation */}
+                <td className="px-4 py-3">
+                  {(u.role === 'charge_operation' || u.role === 'write') ? (
+                    isAdmin ? (
+                      <label className="flex items-center gap-2 cursor-pointer" title="Habilitation patrimoniale">
+                        <input
+                          type="checkbox"
+                          checked={u.habilitation_patrimoniale || false}
+                          onChange={e => handleHabilitationChange(u.id, e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <span className="text-xs text-text-muted">Patrimoine</span>
+                      </label>
+                    ) : (
+                      u.habilitation_patrimoniale
+                        ? <span className="text-xs text-cyan-700 font-medium">✓ Patrimoine</span>
+                        : <span className="text-xs text-text-muted">—</span>
+                    )
+                  ) : (
+                    <span className="text-xs text-text-muted">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${u.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
@@ -268,7 +347,7 @@ function TabUsers() {
               </tr>
             ))}
             {users.length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-text-muted">Aucun utilisateur.</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-text-muted">Aucun utilisateur.</td></tr>
             )}
           </tbody>
         </table>

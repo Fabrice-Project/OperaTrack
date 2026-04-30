@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const { body } = require('express-validator');
-const { authenticate, requireWriteAccess, requireRole } = require('../middleware/auth');
+const { authenticate, requireWriteAccess, requireModuleAWrite, requireRole } = require('../middleware/auth');
 const ctrl = require('../controllers/operationsController');
 
 const router = express.Router();
@@ -20,11 +20,11 @@ router.use(authenticate);
 router.get('/kpis', ctrl.getKPIs);
 router.get('/', ctrl.getAll);
 router.get('/:id', ctrl.getById);
-router.post('/', requireWriteAccess, operationValidation, ctrl.create);
-router.put('/:id', requireWriteAccess, operationValidation, ctrl.update);
+router.post('/', requireModuleAWrite, operationValidation, ctrl.create);
+router.put('/:id', requireModuleAWrite, operationValidation, ctrl.update);
 router.delete('/:id', requireRole('admin'), ctrl.remove);
-router.post('/:id/image', requireWriteAccess, upload.single('image'), ctrl.uploadImage);
+router.post('/:id/image', requireModuleAWrite, upload.single('image'), ctrl.uploadImage);
 router.get('/:id/charges', ctrl.getCharges);
-router.put('/:id/charges', requireWriteAccess, ctrl.updateCharges);
+router.put('/:id/charges', requireModuleAWrite, ctrl.updateCharges);
 
 module.exports = router;
