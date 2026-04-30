@@ -23,7 +23,18 @@ const getVoirie = async (req, res) => {
 };
 
 const createTroncon = async (req, res) => {
-  const { intitule, categorie, longueur_ml, largeur_m, revetement, annee_derniere_refection, etat_general, latitude, longitude, commentaire, geom_points } = req.body;
+  const { intitule, categorie, longueur_ml, largeur_m, revetement, annee_derniere_refection, etat_general, commentaire, geom_points } = req.body;
+  let { latitude, longitude } = req.body;
+  // Auto-calcul du centroïde si lat/lng absents mais geom_points fourni
+  if ((!latitude || !longitude) && geom_points && geom_points.length > 0) {
+    // geom_points stockés comme [[lat, lng], ...] ou [{lat, lng}, ...]
+    const sum = geom_points.reduce((acc, p) => ({
+      lat: acc.lat + (Array.isArray(p) ? p[0] : p.lat),
+      lng: acc.lng + (Array.isArray(p) ? p[1] : p.lng),
+    }), { lat: 0, lng: 0 });
+    latitude  = sum.lat / geom_points.length;
+    longitude = sum.lng / geom_points.length;
+  }
   const { data, error: dbErr } = await supabaseAdmin
     .from('troncons_voirie')
     .insert([{ intitule, categorie, longueur_ml, largeur_m, revetement, annee_derniere_refection, etat_general: etat_general || 'moyen', latitude, longitude, commentaire, geom_points: geom_points || null }])

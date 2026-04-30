@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Plus, Edit2, X, Save, MapPin, Trash2, Package,
@@ -96,13 +96,11 @@ function MapClickHandler({ mode, onMapClick }) {
 /** Recentre et adapte le zoom à une liste de points */
 function FitBounds({ points }) {
   const map = useMap();
-  const fitted = useRef(false);
   useEffect(() => {
-    if (!fitted.current && points && points.length >= 2) {
+    if (points && points.length >= 2) {
       map.fitBounds(L.latLngBounds(points), { padding: [30, 30], maxZoom: 18 });
-      fitted.current = true;
     }
-  }, [map, points]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }
 
@@ -605,8 +603,8 @@ export default function TronconPage() {
 
               <MapClickHandler mode={mapMode} onMapClick={handleMapClick} />
 
-              {/* FitBounds au chargement si on a un tracé */}
-              {roadPoints.length >= 2 && <FitBounds points={roadPoints} />}
+              {/* FitBounds — clé basée sur le mode pour forcer le remontage après sauvegarde */}
+              {roadPoints.length >= 2 && <FitBounds key={`${mapMode}-${roadPoints.length}`} points={roadPoints} />}
 
               {/* Tracé de la rue (polyline) */}
               {roadPoints.length >= 2 && (

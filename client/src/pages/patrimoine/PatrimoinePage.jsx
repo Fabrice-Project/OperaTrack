@@ -77,6 +77,26 @@ function fmtEur(v) {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
 }
 
+// ── Helper Leaflet — ajuste la vue sur un ensemble de points/polylines ────────
+function FitBoundsAll({ troncons }) {
+  const map = useMap();
+  useEffect(() => {
+    const allPoints = [];
+    troncons.forEach(t => {
+      if (t.geom_points && t.geom_points.length >= 2) {
+        // geom_points stockés comme [[lat, lng], ...]
+        t.geom_points.forEach(p => allPoints.push(Array.isArray(p) ? p : [p.lat, p.lng]));
+      } else if (t.latitude && t.longitude) {
+        allPoints.push([t.latitude, t.longitude]);
+      }
+    });
+    if (allPoints.length > 0) {
+      map.fitBounds(L.latLngBounds(allPoints), { padding: [20, 20], maxZoom: 16 });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 // ── Helpers Leaflet pour la modale de création ────────────────────────────────
 function DrawClickHandler({ onMapClick }) {
   useMapEvents({ click: (e) => onMapClick(e.latlng) });
@@ -1162,9 +1182,16 @@ function TabVoirie() {
     color: ETAT_COLORS[etat] || '#6B7280',
   }));
 
-  const mapCenter = troncons.find(t => t.latitude && t.longitude)
-    ? [troncons.find(t => t.latitude && t.longitude).latitude, troncons.find(t => t.latitude && t.longitude).longitude]
-    : [50.32, 3.39];
+  const mapCenter = (() => {
+    const withLatLng = troncons.find(t => t.latitude && t.longitude);
+    if (withLatLng) return [withLatLng.latitude, withLatLng.longitude];
+    const withGeom = troncons.find(t => t.geom_points && t.geom_points.length > 0);
+    if (withGeom) {
+      const p = withGeom.geom_points[0];
+      return Array.isArray(p) ? p : [p.lat, p.lng];
+    }
+    return [50.32, 3.39];
+  })();
 
   return (
     <div className="flex flex-col gap-4">
@@ -1200,19 +1227,29 @@ function TabVoirie() {
         <div className="card overflow-hidden" style={{ minHeight: 260 }}>
           <MapContainer center={mapCenter} zoom={13} style={{ height: 260, width: '100%' }} zoomControl={false}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            {troncons.filter(t => t.latitude && t.longitude).map(t => (
-              <CircleMarker
-                key={t.id}
-                center={[t.latitude, t.longitude]}
-                radius={8}
-                fillColor={ETAT_COLORS[t.etat_general] || '#6B7280'}
-                color="#fff"
-                weight={2}
-                fillOpacity={0.85}
-              >
-                <Popup>{t.intitule}<br />{ETAT_LABELS[t.etat_general]}</Popup>
-              </CircleMarker>
-            ))}
+            <FitBoundsAll key={troncons.length} troncons={troncons} />
+            {troncons.map(t => {
+              const color = ETAT_COLORS[t.etat_general] || '#6B7280';
+              if (t.geom_points && t.geom_points.length >= 2) {
+                // geom_points stockés comme [[lat, lng], ...]
+                const positions = t.geom_points.map(p => Array.isArray(p) ? p : [p.lat, p.lng]);
+                return (
+                  <Polyline key={t.id} positions={positions}
+                    pathOptions={{ color, weight: 5, opacity: 0.85 }}>
+                    <Popup>{t.intitule}<br />{ETAT_LABELS[t.etat_general]}</Popup>
+                  </Polyline>
+                );
+              }
+              if (t.latitude && t.longitude) {
+                return (
+                  <CircleMarker key={t.id} center={[t.latitude, t.longitude]}
+                    radius={8} fillColor={color} color="#fff" weight={2} fillOpacity={0.85}>
+                    <Popup>{t.intitule}<br />{ETAT_LABELS[t.etat_general]}</Popup>
+                  </CircleMarker>
+                );
+              }
+              return null;
+            })}
           </MapContainer>
         </div>
       </div>
