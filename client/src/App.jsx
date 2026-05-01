@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import LoginPage from './pages/auth/LoginPage';
@@ -22,19 +22,36 @@ import RapportEnergiePage from './pages/patrimoine/energie/RapportEnergiePage';
 
 const WRITE_ROLES = ['write', 'charge_operation', 'compta', 'administratif', 'gestionnaire_patrimonial'];
 
-// Intercepte les tokens Supabase dans le hash quand Supabase redirige vers la racine
+// ── Intercepteur global d'invitation ──────────────────────────────────────────
+// Détecte les tokens Supabase (flux PKCE ?code= ou flux implicite #access_token)
+// sur n'importe quelle page et redirige vers /set-password avant que le client
+// Supabase ne connecte automatiquement l'utilisateur.
 function InviteTokenInterceptor() {
   const navigate = useNavigate();
+  const location = useLocation();
+
   useEffect(() => {
-    const hash   = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    const type   = params.get('type');
-    const token  = params.get('access_token');
-    if (token && (type === 'invite' || type === 'recovery')) {
-      // Transférer le hash vers /set-password
-      navigate('/set-password' + window.location.hash, { replace: true });
+    // Ne pas intercepter si on est déjà sur /set-password
+    if (location.pathname === '/set-password') return;
+
+    // Flux PKCE : ?code=xxx dans les query params
+    const searchParams = new URLSearchParams(window.location.search);
+    const code = searchParams.get('code');
+
+    // Flux implicite : #access_token=xxx&type=invite dans le hash
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const hashToken = hashParams.get('access_token');
+    const hashType  = hashParams.get('type');
+
+    if (code) {
+      // PKCE — rediriger vers /set-password en préservant le code
+      navigate(`/set-password${window.location.search}`, { replace: true });
+    } else if (hashToken && (hashType === 'invite' || hashType === 'recovery')) {
+      // Implicite — rediriger vers /set-password en préservant le hash
+      navigate(`/set-password${window.location.hash}`, { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, location.pathname]);
+
   return null;
 }
 
@@ -56,12 +73,13 @@ function ProtectedRoute({ children, hideForWrite = false }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <InviteTokenInterceptor />
       <AuthProvider>
         <ToastProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/set-password" element={<SetPasswordPage />} />
-            <Route path="/" element={<><InviteTokenInterceptor /><ProtectedRoute><DashboardPage /></ProtectedRoute></>} />
+            <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/operations" element={<ProtectedRoute><OperationsListPage /></ProtectedRoute>} />
             <Route path="/operations/new" element={<ProtectedRoute><OperationFormPage /></ProtectedRoute>} />
             <Route path="/operations/:id" element={<ProtectedRoute><OperationDetailPage /></ProtectedRoute>} />

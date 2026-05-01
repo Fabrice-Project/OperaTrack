@@ -5,7 +5,8 @@ export const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY,
   {
     auth: {
-      detectSessionInUrl: true,
+      flowType:           'pkce',
+      detectSessionInUrl: false, // On gère manuellement pour intercepter les invitations
       autoRefreshToken:   true,
       persistSession:     true,
     },

@@ -15,36 +15,38 @@ export default function SetPasswordPage() {
   const [tokenError,   setTokenError]   = useState('');
 
   useEffect(() => {
-    // Supabase envoie le lien sous la forme :
-    //   https://app/set-password#access_token=...&refresh_token=...&type=invite
-    // On extrait manuellement les params du hash pour être indépendant du timing
-    const hash   = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    const accessToken  = params.get('access_token');
-    const refreshToken = params.get('refresh_token') || '';
-    const type         = params.get('type');
+    const searchParams = new URLSearchParams(window.location.search);
+    const code = searchParams.get('code');
 
-    if (accessToken && (type === 'invite' || type === 'recovery' || type === 'signup')) {
-      // On injecte explicitement la session à partir du token de l'URL
+    const hashParams   = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken  = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token') || '';
+    const type         = hashParams.get('type');
+
+    if (code) {
+      // Flux PKCE : échange du code contre une session
+      supabase.auth.exchangeCodeForSession(code)
+        .then(({ data, error }) => {
+          if (error || !data.session) {
+            setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
+          } else {
+            setSessionReady(true);
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        });
+    } else if (accessToken && (type === 'invite' || type === 'recovery' || type === 'signup')) {
+      // Flux implicite : injection directe de la session depuis le hash
       supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
         .then(({ data, error }) => {
           if (error || !data.session) {
             setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
           } else {
             setSessionReady(true);
-            // Nettoyer le hash de l'URL (évite que le token soit visible)
             window.history.replaceState(null, '', window.location.pathname);
           }
         });
     } else {
-      // Pas de token dans l'URL — vérifier s'il existe déjà une session
-      supabase.auth.getSession().then(({ data }) => {
-        if (data.session) {
-          setSessionReady(true);
-        } else {
-          setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
-        }
-      });
+      setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
     }
   }, []);
 
