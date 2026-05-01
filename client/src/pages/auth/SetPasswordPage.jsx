@@ -15,39 +15,27 @@ export default function SetPasswordPage() {
   const [tokenError,   setTokenError]   = useState('');
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const code = searchParams.get('code');
-
-    const hashParams   = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken  = hashParams.get('access_token');
-    const refreshToken = hashParams.get('refresh_token') || '';
-    const type         = hashParams.get('type');
-
-    if (code) {
-      // Flux PKCE : échange du code contre une session
-      supabase.auth.exchangeCodeForSession(code)
-        .then(({ data, error }) => {
-          if (error || !data.session) {
-            setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
-          } else {
+    // Supabase a déjà traité le token (detectSessionInUrl:true)
+    // → on vérifie simplement qu'une session Supabase est active
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        setSessionReady(true);
+      } else {
+        // Écouter si la session arrive dans les prochaines secondes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_IN' && session) {
             setSessionReady(true);
-            window.history.replaceState(null, '', window.location.pathname);
+            subscription.unsubscribe();
           }
         });
-    } else if (accessToken && (type === 'invite' || type === 'recovery' || type === 'signup')) {
-      // Flux implicite : injection directe de la session depuis le hash
-      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-        .then(({ data, error }) => {
-          if (error || !data.session) {
-            setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
-          } else {
-            setSessionReady(true);
-            window.history.replaceState(null, '', window.location.pathname);
-          }
-        });
-    } else {
-      setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
-    }
+        // Timeout : si aucune session après 5s, afficher l'erreur
+        const timer = setTimeout(() => {
+          subscription.unsubscribe();
+          setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
+        }, 5000);
+        return () => { clearTimeout(timer); subscription.unsubscribe(); };
+      }
+    });
   }, []);
 
   const handleSubmit = async (e) => {
@@ -80,8 +68,6 @@ export default function SetPasswordPage() {
       style={{ background: 'linear-gradient(135deg, #1A3A5C 0%, #2E75B6 100%)' }}
     >
       <div className="w-full max-w-md">
-
-        {/* En-tête */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 mb-4">
             <Building2 size={32} className="text-white" />
@@ -92,7 +78,6 @@ export default function SetPasswordPage() {
 
         <div className="card p-8">
 
-          {/* Erreur de lien */}
           {tokenError && (
             <div className="flex flex-col items-center gap-4 text-center">
               <AlertCircle size={40} className="text-red-400" />
@@ -104,15 +89,13 @@ export default function SetPasswordPage() {
             </div>
           )}
 
-          {/* Chargement */}
           {!tokenError && !sessionReady && (
             <div className="flex flex-col items-center gap-3 py-6">
               <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-              <p className="text-text-muted text-sm">Vérification du lien d'invitation…</p>
+              <p className="text-text-muted text-sm">Vérification en cours…</p>
             </div>
           )}
 
-          {/* Formulaire de création de mot de passe */}
           {!tokenError && sessionReady && (
             <>
               <div className="flex items-center gap-2 mb-1">
@@ -135,15 +118,10 @@ export default function SetPasswordPage() {
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       placeholder="6 caractères minimum"
-                      required
-                      minLength={6}
-                      autoFocus
+                      required minLength={6} autoFocus
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPwd(v => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main transition-colors"
-                    >
+                    <button type="button" onClick={() => setShowPwd(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main">
                       {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
@@ -151,28 +129,17 @@ export default function SetPasswordPage() {
 
                 <div>
                   <label className="form-label">Confirmer le mot de passe</label>
-                  <input
-                    type="password"
-                    className="form-input"
-                    value={confirm}
-                    onChange={e => setConfirm(e.target.value)}
-                    placeholder="Répéter le mot de passe"
-                    required
-                    minLength={6}
-                  />
+                  <input type="password" className="form-input"
+                    value={confirm} onChange={e => setConfirm(e.target.value)}
+                    placeholder="Répéter le mot de passe" required minLength={6} />
                 </div>
 
-                <button
-                  type="submit"
-                  className="btn-primary w-full justify-center mt-2"
-                  disabled={loading}
-                >
+                <button type="submit" className="btn-primary w-full justify-center mt-2" disabled={loading}>
                   {loading ? 'Enregistrement…' : 'Définir mon mot de passe'}
                 </button>
               </form>
             </>
           )}
-
         </div>
       </div>
     </div>

@@ -5,7 +5,7 @@ export const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY,
   {
     auth: {
-      detectSessionInUrl: false, // Géré manuellement dans SetPasswordPage
+      detectSessionInUrl: true, // Supabase détecte et traite le token automatiquement
       autoRefreshToken:   true,
       persistSession:     true,
     },
