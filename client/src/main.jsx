@@ -23,7 +23,15 @@ import './styles/index.css';
 
   const INVITE_TYPES = ['invite', 'recovery', 'signup', 'email', 'magiclink'];
 
+  // Efface la session de l'app courante (ex : admin connecté) pour ne pas
+  // parasiter la page de définition de mot de passe du nouvel utilisateur.
+  function clearAppSession() {
+    localStorage.removeItem('opera_token');
+    localStorage.removeItem('opera_user');
+  }
+
   if (hToken && INVITE_TYPES.includes(hType)) {
+    clearAppSession();
     sessionStorage.setItem('opera_invite', JSON.stringify({
       flow: 'implicit', access_token: hToken, refresh_token: hRefresh,
     }));
@@ -31,6 +39,7 @@ import './styles/index.css';
 
   } else if (qToken && INVITE_TYPES.includes(qType)) {
     // Flux implicite — query string
+    clearAppSession();
     sessionStorage.setItem('opera_invite', JSON.stringify({
       flow: 'implicit', access_token: qToken,
       refresh_token: qParams.get('refresh_token') || '',
@@ -39,6 +48,7 @@ import './styles/index.css';
 
   } else if (tokenHash && INVITE_TYPES.includes(qType)) {
     // Flux email OTP / token_hash
+    clearAppSession();
     sessionStorage.setItem('opera_invite', JSON.stringify({
       flow: 'token_hash', token_hash: tokenHash, type: qType,
     }));
@@ -46,6 +56,7 @@ import './styles/index.css';
 
   } else if (code) {
     // Flux PKCE — code d'autorisation
+    clearAppSession();
     sessionStorage.setItem('opera_invite', JSON.stringify({ flow: 'pkce', code }));
     window.history.replaceState(null, '', '/set-password');
   }

@@ -37,6 +37,9 @@ function InviteSessionGuard() {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
+        // Vider la session de l'app pour ne pas afficher le tableau de bord admin
+        localStorage.removeItem('opera_token');
+        localStorage.removeItem('opera_user');
         navigate('/set-password', { replace: true });
       }
     });
