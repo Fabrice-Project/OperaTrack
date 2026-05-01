@@ -50,7 +50,7 @@ router.post('/users/invite', requireRole('admin'), async (req, res) => {
   try {
     const { data, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { role, full_name: full_name || email, habilitation_patrimoniale: habPatrim },
-      redirectTo: `${appUrl}/set-password`,
+      // redirectTo géré via la Site URL Supabase → /set-password
     });
     if (authError) return error(res, authError.message);
     success(res, { id: data.user?.id, email }, 201);
