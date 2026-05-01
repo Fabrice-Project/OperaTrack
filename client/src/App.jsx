@@ -1,6 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { supabase } from './utils/supabaseClient';
 import LoginPage from './pages/auth/LoginPage';
 import SetPasswordPage from './pages/auth/SetPasswordPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -21,6 +23,29 @@ import RapportEnergiePage from './pages/patrimoine/energie/RapportEnergiePage';
 
 const WRITE_ROLES = ['write', 'charge_operation', 'compta', 'administratif', 'gestionnaire_patrimonial'];
 
+// ── Garde de session Supabase ─────────────────────────────────────────────────
+// Filet de sécurité : Supabase peut établir une session via cookie (PKCE server-side)
+// sans paramètre dans l'URL. Si une session Supabase existe sans opera_token,
+// c'est une invitation → redirection vers /set-password.
+function InviteSessionGuard() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname === '/set-password') return;
+    if (sessionStorage.getItem('opera_invite')) return; // déjà géré dans main.jsx
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session && !localStorage.getItem('opera_token')) {
+        // Session Supabase active sans session applicative = invitation
+        navigate('/set-password', { replace: true });
+      }
+    });
+  }, [navigate, location.pathname]);
+
+  return null;
+}
+
 function ProtectedRoute({ children, hideForWrite = false }) {
   const { user, loading } = useAuth();
   if (loading) return (
@@ -39,6 +64,7 @@ function ProtectedRoute({ children, hideForWrite = false }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <InviteSessionGuard />
       <AuthProvider>
         <ToastProvider>
           <Routes>

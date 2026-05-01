@@ -43,11 +43,27 @@ export default function SetPasswordPage() {
               setSessionReady(true);
             }
           });
+
+      } else if (invite.flow === 'token_hash') {
+        supabase.auth.verifyOtp({ token_hash: invite.token_hash, type: invite.type })
+          .then(({ data, error }) => {
+            if (error || !data.session) {
+              setTokenError('Lien invalide ou expiré. Contactez votre administrateur.');
+            } else {
+              setSessionReady(true);
+            }
+          });
       }
 
     } else {
-      // Aucun token — lien déjà utilisé ou accès direct à la page
-      setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
+      // Pas de token en sessionStorage — vérifier si Supabase a une session (PKCE cookie)
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          setSessionReady(true);
+        } else {
+          setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
+        }
+      });
     }
   }, []);
 
