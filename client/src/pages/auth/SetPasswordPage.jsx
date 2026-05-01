@@ -15,24 +15,37 @@ export default function SetPasswordPage() {
   const [tokenError,   setTokenError]   = useState('');
 
   useEffect(() => {
-    // Supabase v2 traite automatiquement le #access_token dans le hash de l'URL
-    // et déclenche onAuthStateChange → SIGNED_IN quand la session est prête
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
-        setSessionReady(true);
-      }
-    });
+    // Supabase envoie le lien sous la forme :
+    //   https://app/set-password#access_token=...&refresh_token=...&type=invite
+    // On extrait manuellement les params du hash pour être indépendant du timing
+    const hash   = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const accessToken  = params.get('access_token');
+    const refreshToken = params.get('refresh_token') || '';
+    const type         = params.get('type');
 
-    // Vérification immédiate si la session est déjà établie
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setSessionReady(true);
-      } else if (!window.location.hash.includes('access_token')) {
-        setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email d\'invitation.');
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    if (accessToken && (type === 'invite' || type === 'recovery' || type === 'signup')) {
+      // On injecte explicitement la session à partir du token de l'URL
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ data, error }) => {
+          if (error || !data.session) {
+            setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
+          } else {
+            setSessionReady(true);
+            // Nettoyer le hash de l'URL (évite que le token soit visible)
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        });
+    } else {
+      // Pas de token dans l'URL — vérifier s'il existe déjà une session
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          setSessionReady(true);
+        } else {
+          setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
+        }
+      });
+    }
   }, []);
 
   const handleSubmit = async (e) => {
@@ -97,7 +110,7 @@ export default function SetPasswordPage() {
             </div>
           )}
 
-          {/* Formulaire */}
+          {/* Formulaire de création de mot de passe */}
           {!tokenError && sessionReady && (
             <>
               <div className="flex items-center gap-2 mb-1">
@@ -157,6 +170,7 @@ export default function SetPasswordPage() {
               </form>
             </>
           )}
+
         </div>
       </div>
     </div>
