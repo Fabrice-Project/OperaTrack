@@ -15,27 +15,40 @@ export default function SetPasswordPage() {
   const [tokenError,   setTokenError]   = useState('');
 
   useEffect(() => {
-    // Supabase a déjà traité le token (detectSessionInUrl:true)
-    // → on vérifie simplement qu'une session Supabase est active
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setSessionReady(true);
-      } else {
-        // Écouter si la session arrive dans les prochaines secondes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-          if (event === 'SIGNED_IN' && session) {
+    // Récupère le token sauvegardé par main.jsx avant le rendu React
+    const stored = sessionStorage.getItem('opera_invite');
+
+    if (stored) {
+      sessionStorage.removeItem('opera_invite');
+      const invite = JSON.parse(stored);
+
+      if (invite.flow === 'implicit') {
+        supabase.auth.setSession({
+          access_token:  invite.access_token,
+          refresh_token: invite.refresh_token,
+        }).then(({ data, error }) => {
+          if (error || !data.session) {
+            setTokenError('Lien invalide ou expiré. Contactez votre administrateur.');
+          } else {
             setSessionReady(true);
-            subscription.unsubscribe();
           }
         });
-        // Timeout : si aucune session après 5s, afficher l'erreur
-        const timer = setTimeout(() => {
-          subscription.unsubscribe();
-          setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
-        }, 5000);
-        return () => { clearTimeout(timer); subscription.unsubscribe(); };
+
+      } else if (invite.flow === 'pkce') {
+        supabase.auth.exchangeCodeForSession(invite.code)
+          .then(({ data, error }) => {
+            if (error || !data.session) {
+              setTokenError('Lien invalide ou expiré. Contactez votre administrateur.');
+            } else {
+              setSessionReady(true);
+            }
+          });
       }
-    });
+
+    } else {
+      // Aucun token — lien déjà utilisé ou accès direct à la page
+      setTokenError('Lien invalide ou expiré. Contactez votre administrateur pour recevoir un nouvel email.');
+    }
   }, []);
 
   const handleSubmit = async (e) => {
@@ -140,6 +153,7 @@ export default function SetPasswordPage() {
               </form>
             </>
           )}
+
         </div>
       </div>
     </div>

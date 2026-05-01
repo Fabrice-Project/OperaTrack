@@ -1,8 +1,6 @@
-import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
-import { supabase } from './utils/supabaseClient';
 import LoginPage from './pages/auth/LoginPage';
 import SetPasswordPage from './pages/auth/SetPasswordPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -23,33 +21,6 @@ import RapportEnergiePage from './pages/patrimoine/energie/RapportEnergiePage';
 
 const WRITE_ROLES = ['write', 'charge_operation', 'compta', 'administratif', 'gestionnaire_patrimonial'];
 
-// ── Intercepteur d'invitation ─────────────────────────────────────────────────
-// Supabase traite le token (hash ou code PKCE) et déclenche SIGNED_IN.
-// Si l'utilisateur n'a pas de session applicative (opera_token), c'est une
-// invitation → on redirige vers /set-password avant toute autre navigation.
-function InviteTokenInterceptor() {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    if (location.pathname === '/set-password') return;
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (
-        event === 'SIGNED_IN' &&
-        session &&
-        !localStorage.getItem('opera_token') // pas de session applicative = invitation
-      ) {
-        navigate('/set-password', { replace: true });
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate, location.pathname]);
-
-  return null;
-}
-
 function ProtectedRoute({ children, hideForWrite = false }) {
   const { user, loading } = useAuth();
   if (loading) return (
@@ -68,7 +39,6 @@ function ProtectedRoute({ children, hideForWrite = false }) {
 export default function App() {
   return (
     <BrowserRouter>
-      <InviteTokenInterceptor />
       <AuthProvider>
         <ToastProvider>
           <Routes>
