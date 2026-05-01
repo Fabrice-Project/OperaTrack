@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
+import { supabase } from '../utils/supabaseClient';
 
 const AuthContext = createContext(null);
 
@@ -40,6 +41,8 @@ export function AuthProvider({ children }) {
     localStorage.setItem('opera_token', data.access_token);
     localStorage.setItem('opera_user', JSON.stringify(data.user));
     setUser(data.user);
+    // Effacer toute session Supabase résiduelle (ex: lien d'invitation non complété)
+    supabase.auth.signOut().catch(() => {});
     return data.user;
   }, []);
 

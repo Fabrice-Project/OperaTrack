@@ -24,24 +24,23 @@ import RapportEnergiePage from './pages/patrimoine/energie/RapportEnergiePage';
 const WRITE_ROLES = ['write', 'charge_operation', 'compta', 'administratif', 'gestionnaire_patrimonial'];
 
 // ── Garde de session Supabase ─────────────────────────────────────────────────
-// Filet de sécurité : Supabase peut établir une session via cookie (PKCE server-side)
-// sans paramètre dans l'URL. Si une session Supabase existe sans opera_token,
-// c'est une invitation → redirection vers /set-password.
+// Tourne UNE SEULE FOIS au chargement de l'app.
+// Si Supabase a une session active (établie via cookie PKCE lors du clic sur
+// le lien d'invitation) et qu'on n'est pas déjà sur /set-password → on y redirige.
+// Cela fonctionne même quand l'admin est connecté et teste le lien d'invitation.
 function InviteSessionGuard() {
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
-    if (location.pathname === '/set-password') return;
-    if (sessionStorage.getItem('opera_invite')) return; // déjà géré dans main.jsx
+    if (window.location.pathname === '/set-password') return;
+    if (sessionStorage.getItem('opera_invite')) return; // déjà traité dans main.jsx
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session && !localStorage.getItem('opera_token')) {
-        // Session Supabase active sans session applicative = invitation
+      if (session) {
         navigate('/set-password', { replace: true });
       }
     });
-  }, [navigate, location.pathname]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps — intentionnellement vide
 
   return null;
 }
