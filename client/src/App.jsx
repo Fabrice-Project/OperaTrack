@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import LoginPage from './pages/auth/LoginPage';
@@ -20,6 +21,22 @@ import EnergieDashboardPage from './pages/patrimoine/energie/EnergieDashboardPag
 import RapportEnergiePage from './pages/patrimoine/energie/RapportEnergiePage';
 
 const WRITE_ROLES = ['write', 'charge_operation', 'compta', 'administratif', 'gestionnaire_patrimonial'];
+
+// Intercepte les tokens Supabase dans le hash quand Supabase redirige vers la racine
+function InviteTokenInterceptor() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const hash   = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const type   = params.get('type');
+    const token  = params.get('access_token');
+    if (token && (type === 'invite' || type === 'recovery')) {
+      // Transférer le hash vers /set-password
+      navigate('/set-password' + window.location.hash, { replace: true });
+    }
+  }, [navigate]);
+  return null;
+}
 
 function ProtectedRoute({ children, hideForWrite = false }) {
   const { user, loading } = useAuth();
@@ -44,7 +61,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/set-password" element={<SetPasswordPage />} />
-            <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+            <Route path="/" element={<><InviteTokenInterceptor /><ProtectedRoute><DashboardPage /></ProtectedRoute></>} />
             <Route path="/operations" element={<ProtectedRoute><OperationsListPage /></ProtectedRoute>} />
             <Route path="/operations/new" element={<ProtectedRoute><OperationFormPage /></ProtectedRoute>} />
             <Route path="/operations/:id" element={<ProtectedRoute><OperationDetailPage /></ProtectedRoute>} />
