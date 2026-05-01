@@ -134,7 +134,6 @@ function TabUsers() {
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
-  const [invitePassword, setInvitePassword] = useState('');
   const [inviteRole, setInviteRole] = useState('directeur');
   const [inviteHabilitation, setInviteHabilitation] = useState(false);
   const [inviting, setInviting] = useState(false);
@@ -156,14 +155,12 @@ function TabUsers() {
       await api.post('/settings/users/invite', {
         email:                    inviteEmail.trim(),
         full_name:                inviteName.trim(),
-        password:                 invitePassword,
         role:                     inviteRole,
         habilitation_patrimoniale: inviteRole === 'charge_operation' ? inviteHabilitation : false,
       });
-      toast.success(`Compte créé pour ${inviteName.trim() || inviteEmail}`);
+      toast.success(`Invitation envoyée à ${inviteName.trim() || inviteEmail}`);
       setInviteEmail('');
       setInviteName('');
-      setInvitePassword('');
       setInviteHabilitation(false);
       load();
     } catch (err) { toast.error(err.message); }
@@ -230,11 +227,6 @@ function TabUsers() {
                 placeholder="thomas.duval@denain.fr" className="input w-full" required />
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">Mot de passe *</label>
-              <input type="password" value={invitePassword} onChange={e => setInvitePassword(e.target.value)}
-                placeholder="6 caractères minimum" className="input w-full" required minLength={6} />
-            </div>
-            <div>
               <label className="block text-xs font-medium text-text-muted mb-1">Profil</label>
               <select value={inviteRole} onChange={e => { setInviteRole(e.target.value); setInviteHabilitation(false); }} className="input w-full">
                 {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -261,7 +253,7 @@ function TabUsers() {
             )}
             <div className="sm:col-span-2 flex justify-end">
               <button type="submit" disabled={inviting} className="btn-primary flex items-center gap-1.5">
-                <Plus size={14} /> {inviting ? 'Création…' : 'Créer le compte'}
+                <Plus size={14} /> {inviting ? 'Envoi…' : 'Envoyer l\'invitation'}
               </button>
             </div>
           </form>

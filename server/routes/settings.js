@@ -30,28 +30,27 @@ router.get('/users', async (req, res) => {
   }
 });
 
-/* ── POST /settings/users/invite — créer un utilisateur ── */
+/* ── POST /settings/users/invite — inviter un utilisateur par email ── */
 router.post('/users/invite', requireRole('admin'), async (req, res) => {
-  const { email, full_name = '', password, role = 'directeur', habilitation_patrimoniale = false } = req.body;
-  if (!email)    return error(res, 'Email requis', 400);
-  if (!password) return error(res, 'Mot de passe requis', 400);
-  if (password.length < 6) return error(res, 'Mot de passe trop court (6 caractères minimum)', 400);
+  const { email, full_name = '', role = 'directeur', habilitation_patrimoniale = false } = req.body;
+  if (!email) return error(res, 'Email requis', 400);
 
   const validRoles = [
     'administrateur', 'charge_operation', 'gestionnaire_patrimonial', 'directeur', 'administratif',
-    'admin', 'write', 'read', 'compta', // rétrocompatibilité anciens noms
+    'admin', 'write', 'read', 'compta',
   ];
   if (!validRoles.includes(role)) return error(res, 'Rôle invalide', 400);
 
-  // L'habilitation patrimoniale n'a de sens que pour charge_operation
   const habPatrim = (role === 'charge_operation' || role === 'write') ? habilitation_patrimoniale === true : false;
 
+  // URL de redirection après clic sur le lien d'invitation
+  const appUrl = process.env.APP_URL
+    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173');
+
   try {
-    const { data, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { role, full_name: full_name || email, habilitation_patrimoniale: habPatrim },
+    const { data, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      data: { role, full_name: full_name || email, habilitation_patrimoniale: habPatrim },
+      redirectTo: `${appUrl}/set-password`,
     });
     if (authError) return error(res, authError.message);
     success(res, { id: data.user?.id, email }, 201);

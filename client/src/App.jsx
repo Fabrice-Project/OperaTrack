@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import LoginPage from './pages/auth/LoginPage';
+import SetPasswordPage from './pages/auth/SetPasswordPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import OperationsListPage from './pages/operations/OperationsListPage';
 import OperationDetailPage from './pages/operations/OperationDetailPage';
@@ -42,6 +43,7 @@ export default function App() {
         <ToastProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/set-password" element={<SetPasswordPage />} />
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/operations" element={<ProtectedRoute><OperationsListPage /></ProtectedRoute>} />
             <Route path="/operations/new" element={<ProtectedRoute><OperationFormPage /></ProtectedRoute>} />
