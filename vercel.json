@@ -2,7 +2,7 @@
   "version": 2,
 
   "installCommand": "npm install && cd client && npm install",
-  "buildCommand": "cd client && npm run build",
+  "buildCommand": "cd client && ./node_modules/.bin/vite build",
   "outputDirectory": "client/dist",
 
   "rewrites": [
