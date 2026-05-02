@@ -4,13 +4,6 @@ import { Building2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 
-const DEMO_ACCOUNTS = [
-  { email: 'admin@denain.fr', label: 'Administrateur' },
-  { email: 'sophie.marchand@denain.fr', label: 'Chargée d\'opération' },
-  { email: 'thomas.duval@denain.fr', label: 'Chargé d\'opération' },
-  { email: 'direction@denain.fr', label: 'Direction' }
-];
-
 export default function LoginPage() {
   const { user, login } = useAuth();
   const toast = useToast();
@@ -32,8 +25,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
-  const fillDemo = (email) => setForm({ email, password: 'Demo2026!' });
 
   return (
     <div
@@ -97,26 +88,6 @@ export default function LoginPage() {
               {loading ? 'Connexion en cours…' : 'Se connecter'}
             </button>
           </form>
-
-          {/* Comptes démo */}
-          <div className="mt-6 pt-5 border-t border-border">
-            <p className="text-xs text-text-muted text-center mb-3 font-medium uppercase tracking-wide">
-              Comptes de démonstration
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {DEMO_ACCOUNTS.map(acc => (
-                <button
-                  key={acc.email}
-                  onClick={() => fillDemo(acc.email)}
-                  className="text-left px-3 py-2 rounded-lg border border-border hover:border-secondary hover:bg-blue-50 transition-all text-xs"
-                >
-                  <div className="font-semibold text-text-main">{acc.label}</div>
-                  <div className="text-text-muted truncate">{acc.email}</div>
-                </button>
-              ))}
-            </div>
-            <p className="text-center text-xs text-text-muted mt-2">Mot de passe : <code className="font-mono bg-gray-100 px-1 rounded">Demo2026!</code></p>
-          </div>
         </div>
       </div>
     </div>

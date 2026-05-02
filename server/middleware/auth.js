@@ -51,6 +51,15 @@ const requireWriteAccess = (req, res, next) => {
   next();
 };
 
+// ── requireStrategicWrite — engagements de mandat et leviers résilience ───────
+// Profils autorisés : admin, directeur
+// Bloqués : charge_operation, gestionnaire_patrimonial, administratif
+const requireStrategicWrite = (req, res, next) => {
+  const r = req.role;
+  if (isAdmin(r) || isDirecteur(r)) return next();
+  return error(res, 'Accès réservé aux administrateurs et à la direction', 403);
+};
+
 // ── requireModuleAWrite — écriture sur les opérations de construction ─────────
 // Profils autorisés : admin, charge_operation
 // Bloqués : directeur, gestionnaire_patrimonial, administratif
@@ -97,6 +106,7 @@ module.exports = {
   authenticate,
   requireRole,
   requireWriteAccess,
+  requireStrategicWrite,
   requireModuleAWrite,
   requirePatrimoineReferentielWrite,
   requirePatrimoineCoutsWrite,

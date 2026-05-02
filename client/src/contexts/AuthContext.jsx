@@ -89,6 +89,9 @@ export function AuthProvider({ children }) {
   // Gestion de la configuration (paramètres admin)
   const canManageConfig = isAdmin;
 
+  // Écriture stratégique : engagements de mandat et leviers résilience
+  const canWriteStrategic = isAdmin || isDirecteur;
+
   return (
     <AuthContext.Provider value={{
       user, loading, login, logout,
@@ -107,6 +110,7 @@ export function AuthProvider({ children }) {
       canWriteModuleA,
       canAccessModuleA,
       canManageConfig,
+      canWriteStrategic,
       // Rétrocompatibilité anciens noms
       isCompta: isAdministratif,
     }}>

@@ -456,7 +456,7 @@ function EngagementRow({ eng, onSave, onDelete, isAdmin }) {
 
 function TabEngagements() {
   const toast = useToast();
-  const { canManageConfig: isAdmin } = useAuth();
+  const { canWriteStrategic: isAdmin } = useAuth();
   const [engagements, setEngagements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -615,7 +615,7 @@ const VOLET_LABELS = { 1: '🌿 Climatique', 2: '⚡ Énergétique', 3: '👥 So
 
 function TabResilience() {
   const toast = useToast();
-  const { canManageConfig: isAdmin } = useAuth();
+  const { canWriteStrategic: isAdmin } = useAuth();
   const [leviers, setLeviers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState(null);

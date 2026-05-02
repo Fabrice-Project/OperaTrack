@@ -34,7 +34,7 @@ const ALL_TABS = [
   { id: 'planning',     label: 'Planning' },
   { id: 'marches',      label: 'Marchés',       compta: true },
   { id: 'reception',    label: 'Réception',     compta: true },
-  { id: 'documents',    label: 'Documents' },
+  { id: 'documents',    label: 'Documents',    compta: true },
   { id: 'resilience',   label: 'Résilience' },
 ];
 
