@@ -823,7 +823,9 @@ function TabConfig() {
    PAGE PRINCIPALE
 ════════════════════════════════════════════ */
 export default function SettingsPage() {
-  const [tab, setTab] = useState('users');
+  const { isAdmin } = useAuth();
+  const visibleTabs = isAdmin ? TABS : TABS.filter(t => t.id !== 'users');
+  const [tab, setTab] = useState(() => isAdmin ? 'users' : 'engagements');
 
   return (
     <AppLayout breadcrumbs={[{ label: 'Paramètres' }]}>
@@ -836,7 +838,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="border-b border-border mb-6 flex gap-0">
-          {TABS.map(t => (
+          {visibleTabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                 tab === t.id ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text-main'
@@ -847,7 +849,7 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        {tab === 'users'       && <TabUsers />}
+        {tab === 'users'       && isAdmin && <TabUsers />}
         {tab === 'engagements' && <TabEngagements />}
         {tab === 'resilience'  && <TabResilience />}
         {tab === 'config'      && <TabConfig />}
