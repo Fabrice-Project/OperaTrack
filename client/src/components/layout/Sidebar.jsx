@@ -1,5 +1,5 @@
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderOpen, BarChart3, Settings, Building2, Route, Lightbulb, Zap } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, BarChart3, Settings, Building2, Route, Lightbulb, Zap, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 // Rôles exclus de la section Paramètres (admin uniquement pour l'écriture)
@@ -31,7 +31,7 @@ const PATRIMOINE_ITEMS = [
   { to: '/patrimoine/energie',   icon: Zap,       label: 'Tableau de bord énergie' },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
   const { user } = useAuth();
   const userRole = user?.role || 'directeur';
@@ -44,11 +44,15 @@ export function Sidebar() {
 
   return (
     <aside
-      className="fixed left-0 top-0 h-full z-40 flex flex-col transition-all duration-200"
+      className={`
+        fixed left-0 top-0 h-full z-40 flex flex-col
+        transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}
       style={{ width: 240, backgroundColor: 'var(--color-primary)' }}
     >
-      {/* Logo */}
-      <div className="px-5 py-6 border-b border-white/10">
+      {/* Logo + bouton fermeture mobile */}
+      <div className="px-5 py-6 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Building2 size={22} className="text-white" />
           <div>
@@ -56,12 +60,20 @@ export function Sidebar() {
             <div className="text-white/50 text-xs">Ville de Denain</div>
           </div>
         </div>
+        {/* Bouton X visible uniquement sur mobile */}
+        <button
+          onClick={onClose}
+          className="md:hidden text-white/60 hover:text-white transition-colors p-1 rounded"
+          aria-label="Fermer le menu"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 py-4 overflow-y-auto">
         {navItems.map(item => (
-          <NavSection key={item.to} item={item} isOpsActive={isOpsActive} />
+          <NavSection key={item.to} item={item} isOpsActive={isOpsActive} onClose={onClose} />
         ))}
 
         {/* Section Gestion Patrimoniale — visible pour tous les profils */}
@@ -73,6 +85,7 @@ export function Sidebar() {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={onClose}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-5 py-2.5 mx-2 rounded-lg mb-0.5 transition-colors ${
                   isActive ? '' : 'hover:bg-white/5'
@@ -120,7 +133,7 @@ function ProfilBadge({ role }) {
   );
 }
 
-function NavSection({ item, isOpsActive }) {
+function NavSection({ item, isOpsActive, onClose }) {
   if (item.disabled) {
     return (
       <div className="flex items-center gap-3 px-5 py-2.5 mx-2 rounded-lg opacity-40 cursor-not-allowed">
@@ -136,6 +149,7 @@ function NavSection({ item, isOpsActive }) {
       <div>
         <Link
           to={item.to}
+          onClick={onClose}
           className="flex items-center gap-3 px-5 py-2.5 mx-2 rounded-lg mb-0.5 transition-colors hover:bg-white/5"
           style={isOpsActive ? {
             backgroundColor: 'rgba(255,255,255,0.12)',
@@ -153,6 +167,7 @@ function NavSection({ item, isOpsActive }) {
                 key={child.to}
                 to={child.to}
                 end={child.exact}
+                onClick={onClose}
                 className={({ isActive }) =>
                   `block py-1.5 px-3 rounded text-xs font-medium transition-colors ${
                     isActive ? 'text-white bg-white/10' : 'text-white/60 hover:text-white'
@@ -172,6 +187,7 @@ function NavSection({ item, isOpsActive }) {
     <NavLink
       to={item.to}
       end={item.exact}
+      onClick={onClose}
       className={({ isActive }) =>
         `flex items-center gap-3 px-5 py-2.5 mx-2 rounded-lg mb-0.5 transition-colors ${
           isActive ? '' : 'hover:bg-white/5'

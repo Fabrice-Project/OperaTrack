@@ -142,22 +142,22 @@ export default function OperationDetailPage() {
           </div>
 
           {/* Actions */}
-          <div className="absolute top-4 right-4 flex gap-2">
+          <div className="absolute top-3 right-3 flex flex-wrap gap-1.5 justify-end max-w-[calc(100%-1.5rem)]">
             {!isReadOnly && (
               <>
-                <label className="btn-secondary flex items-center gap-1.5 cursor-pointer text-xs px-3 py-1.5">
+                <label className="btn-secondary flex items-center gap-1 cursor-pointer text-xs px-2 py-1.5 sm:px-3">
                   <Upload size={13} />
-                  {uploading ? 'Upload…' : 'Photo'}
+                  <span className="hidden sm:inline">{uploading ? 'Upload…' : 'Photo'}</span>
                   <input type="file" accept="image/jpeg,image/png" onChange={handleImageUpload} className="hidden" />
                 </label>
-                <Link to={`/operations/${id}/edit`} className="btn-secondary flex items-center gap-1.5 text-xs px-3 py-1.5">
-                  <Edit size={13} /> Modifier
+                <Link to={`/operations/${id}/edit`} className="btn-secondary flex items-center gap-1 text-xs px-2 py-1.5 sm:px-3">
+                  <Edit size={13} /> <span className="hidden sm:inline">Modifier</span>
                 </Link>
               </>
             )}
             {isAdmin && (
-              <button onClick={() => setDeleteOpen(true)} className="btn-danger flex items-center gap-1.5 text-xs px-3 py-1.5">
-                <Trash2 size={13} /> Supprimer
+              <button onClick={() => setDeleteOpen(true)} className="btn-danger flex items-center gap-1 text-xs px-2 py-1.5 sm:px-3">
+                <Trash2 size={13} /> <span className="hidden sm:inline">Supprimer</span>
               </button>
             )}
           </div>

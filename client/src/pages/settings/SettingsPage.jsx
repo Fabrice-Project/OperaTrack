@@ -261,6 +261,7 @@ function TabUsers() {
       )}
 
       <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-border bg-gray-50">
@@ -343,6 +344,7 @@ function TabUsers() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

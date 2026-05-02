@@ -31,7 +31,7 @@ export default function DashboardPage() {
   return (
     <AppLayout breadcrumbs={[{ label: 'Tableau de bord' }]}>
       {/* Zone 1 — KPIs ligne 1 */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         {kpiLoading ? (
           Array.from({ length: 4 }).map((_, i) => <KpiSkeleton key={i} />)
         ) : (
@@ -45,7 +45,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Zone 1 bis — KPIs finances consolidées */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {kpiLoading ? (
           Array.from({ length: 3 }).map((_, i) => <KpiSkeleton key={i} />)
         ) : (
@@ -64,7 +64,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Zone 2 — Carte + Tableau */}
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
         {/* Carte */}
         <div className="card p-4 xl:col-span-3">
           <h2 className="font-heading font-semibold text-text-main text-base mb-3">
