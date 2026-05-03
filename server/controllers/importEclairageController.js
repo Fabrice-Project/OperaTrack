@@ -286,14 +286,19 @@ exports.importEclairage = async (req, res) => {
       });
     }
 
+    // ── 3b. Dédupliquer armoires (garder la dernière occurrence par intitule) ──
+    const armMap = new Map();
+    for (const a of armPayloads) armMap.set(a.intitule, a);
+    const armDeduped = [...armMap.values()];
+
     // ── 4. Upsert armoires en batch (onConflict: intitule) ───────────────────
     // Récupérer les IDs existants pour séparer créés / mis à jour
-    if (armPayloads.length > 0) {
+    if (armDeduped.length > 0) {
       const { data: existingArm } = await supabaseAdmin
         .from('armoires_eclairage').select('intitule');
       const existingIntitules = new Set((existingArm || []).map(a => a.intitule));
 
-      for (const batch of chunkArray(armPayloads, BATCH)) {
+      for (const batch of chunkArray(armDeduped, BATCH)) {
         const { error: e } = await supabaseAdmin
           .from('armoires_eclairage')
           .upsert(batch, { onConflict: 'intitule', ignoreDuplicates: false });
@@ -339,13 +344,18 @@ exports.importEclairage = async (req, res) => {
       });
     }
 
+    // ── 6b. Dédupliquer points lumineux (garder la dernière occurrence par reference) ──
+    const plMap = new Map();
+    for (const p of plPayloads) plMap.set(p.reference, p);
+    const plDeduped = [...plMap.values()];
+
     // ── 7. Upsert points lumineux en batch (onConflict: reference) ───────────
-    if (plPayloads.length > 0) {
+    if (plDeduped.length > 0) {
       const { data: existingPL } = await supabaseAdmin
         .from('points_lumineux').select('reference');
       const existingRefs = new Set((existingPL || []).map(p => p.reference));
 
-      for (const batch of chunkArray(plPayloads, BATCH)) {
+      for (const batch of chunkArray(plDeduped, BATCH)) {
         const { error: e } = await supabaseAdmin
           .from('points_lumineux')
           .upsert(batch, { onConflict: 'reference', ignoreDuplicates: false });
