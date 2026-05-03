@@ -24,5 +24,12 @@ ALTER TABLE points_lumineux
 ALTER TABLE points_lumineux
   DROP CONSTRAINT IF EXISTS points_lumineux_type_lampe_check;
 
+-- ── 5. Contrainte UNIQUE sur armoires_eclairage.intitule ─────────────────────
+--    Nécessaire pour que le upsert onConflict:'intitule' fonctionne
+ALTER TABLE armoires_eclairage
+  DROP CONSTRAINT IF EXISTS armoires_eclairage_intitule_key;
+ALTER TABLE armoires_eclairage
+  ADD CONSTRAINT armoires_eclairage_intitule_key UNIQUE (intitule);
+
 -- ── Vérification ─────────────────────────────────────────────────────────────
 -- Après exécution, relancer l'import Excel depuis l'application.

@@ -286,36 +286,23 @@ exports.importEclairage = async (req, res) => {
       });
     }
 
-    // ── 4. Upsert armoires en batch ───────────────────────────────────────────
+    // ── 4. Upsert armoires en batch (onConflict: intitule) ───────────────────
+    // Récupérer les IDs existants pour séparer créés / mis à jour
     if (armPayloads.length > 0) {
-      if (clearFirst) {
-        // Après purge : insertion directe, pas besoin de vérifier l'existant
-        for (const batch of chunkArray(armPayloads, BATCH)) {
-          const { error: e } = await supabaseAdmin.from('armoires_eclairage').insert(batch);
-          if (e) results.armoires.errors.push(e.message);
-          else   results.armoires.created += batch.length;
-        }
-      } else {
-        // Récupérer les intitulés existants (1 seul appel)
-        const { data: existing } = await supabaseAdmin
-          .from('armoires_eclairage').select('id, intitule');
-        const existingMap = new Map((existing || []).map(a => [a.intitule, a.id]));
+      const { data: existingArm } = await supabaseAdmin
+        .from('armoires_eclairage').select('intitule');
+      const existingIntitules = new Set((existingArm || []).map(a => a.intitule));
 
-        const toInsert = armPayloads.filter(a => !existingMap.has(a.intitule));
-        const toUpdate = armPayloads
-          .filter(a => existingMap.has(a.intitule))
-          .map(a => ({ ...a, id: existingMap.get(a.intitule) }));
-
-        for (const batch of chunkArray(toInsert, BATCH)) {
-          const { error: e } = await supabaseAdmin.from('armoires_eclairage').insert(batch);
-          if (e) results.armoires.errors.push(e.message);
-          else   results.armoires.created += batch.length;
-        }
-        for (const batch of chunkArray(toUpdate, BATCH)) {
-          const { error: e } = await supabaseAdmin
-            .from('armoires_eclairage').upsert(batch, { onConflict: 'id' });
-          if (e) results.armoires.errors.push(e.message);
-          else   results.armoires.updated += batch.length;
+      for (const batch of chunkArray(armPayloads, BATCH)) {
+        const { error: e } = await supabaseAdmin
+          .from('armoires_eclairage')
+          .upsert(batch, { onConflict: 'intitule', ignoreDuplicates: false });
+        if (e) results.armoires.errors.push(e.message);
+        else {
+          batch.forEach(a => {
+            if (existingIntitules.has(a.intitule)) results.armoires.updated++;
+            else results.armoires.created++;
+          });
         }
       }
     }
@@ -352,34 +339,22 @@ exports.importEclairage = async (req, res) => {
       });
     }
 
-    // ── 7. Upsert points lumineux en batch ────────────────────────────────────
+    // ── 7. Upsert points lumineux en batch (onConflict: reference) ───────────
     if (plPayloads.length > 0) {
-      if (clearFirst) {
-        for (const batch of chunkArray(plPayloads, BATCH)) {
-          const { error: e } = await supabaseAdmin.from('points_lumineux').insert(batch);
-          if (e) results.pointsLumineux.errors.push(e.message);
-          else   results.pointsLumineux.created += batch.length;
-        }
-      } else {
-        const { data: existing } = await supabaseAdmin
-          .from('points_lumineux').select('id, reference');
-        const existingMap = new Map((existing || []).map(p => [p.reference, p.id]));
+      const { data: existingPL } = await supabaseAdmin
+        .from('points_lumineux').select('reference');
+      const existingRefs = new Set((existingPL || []).map(p => p.reference));
 
-        const toInsert = plPayloads.filter(p => !existingMap.has(p.reference));
-        const toUpdate = plPayloads
-          .filter(p => existingMap.has(p.reference))
-          .map(p => ({ ...p, id: existingMap.get(p.reference) }));
-
-        for (const batch of chunkArray(toInsert, BATCH)) {
-          const { error: e } = await supabaseAdmin.from('points_lumineux').insert(batch);
-          if (e) results.pointsLumineux.errors.push(e.message);
-          else   results.pointsLumineux.created += batch.length;
-        }
-        for (const batch of chunkArray(toUpdate, BATCH)) {
-          const { error: e } = await supabaseAdmin
-            .from('points_lumineux').upsert(batch, { onConflict: 'id' });
-          if (e) results.pointsLumineux.errors.push(e.message);
-          else   results.pointsLumineux.updated += batch.length;
+      for (const batch of chunkArray(plPayloads, BATCH)) {
+        const { error: e } = await supabaseAdmin
+          .from('points_lumineux')
+          .upsert(batch, { onConflict: 'reference', ignoreDuplicates: false });
+        if (e) results.pointsLumineux.errors.push(e.message);
+        else {
+          batch.forEach(p => {
+            if (existingRefs.has(p.reference)) results.pointsLumineux.updated++;
+            else results.pointsLumineux.created++;
+          });
         }
       }
     }
