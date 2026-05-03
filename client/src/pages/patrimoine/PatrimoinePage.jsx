@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
-import { Plus, Route, Lightbulb, Building2, X, FileDown, Sheet, Briefcase, ChevronDown, ChevronRight, RefreshCw, ClipboardList, Edit2, Search, Undo2, Trash2 } from 'lucide-react';
+import { Plus, Route, Lightbulb, Building2, X, FileDown, Sheet, Briefcase, ChevronDown, ChevronRight, RefreshCw, ClipboardList, Edit2, Search, Undo2, Trash2, FileUp } from 'lucide-react';
+import { ImportEclairageModal } from './eclairage/ImportEclairageModal';
 import { RapportModal } from '../../components/patrimoine/RapportModal';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -1401,6 +1402,7 @@ function TabEclairage() {
   const [kpis, setKpis]       = useState(null);
   const [showCreatePL, setShowCreatePL]         = useState(false);
   const [showCreateArmoire, setShowCreateArmoire] = useState(false);
+  const [showImportEclairage, setShowImportEclairage] = useState(false);
   const [marcheRefreshKey, setMarcheRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
@@ -1505,6 +1507,9 @@ function TabEclairage() {
                 <button onClick={() => setShowRapport(true)} className="btn-secondary text-xs flex items-center gap-1.5">
                   <FileDown size={13} /> Rapport / Export
                 </button>
+                <button onClick={() => setShowImportEclairage(true)} className="btn-secondary text-xs flex items-center gap-1.5">
+                  <FileUp size={13} /> Importer
+                </button>
                 <button onClick={() => setShowCreatePL(true)} className="btn-primary text-xs flex items-center gap-1.5">
                   <Plus size={13} /> Nouveau
                 </button>
@@ -1576,9 +1581,14 @@ function TabEclairage() {
           <div className="card overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-border">
               <h4 className="font-heading font-semibold text-sm text-text-main">Armoires ({armoires.length})</h4>
-              <button onClick={() => setShowCreateArmoire(true)} className="btn-primary text-xs flex items-center gap-1.5">
-                <Plus size={13} /> Nouvelle armoire
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => setShowImportEclairage(true)} className="btn-secondary text-xs flex items-center gap-1.5">
+                  <FileUp size={13} /> Importer
+                </button>
+                <button onClick={() => setShowCreateArmoire(true)} className="btn-primary text-xs flex items-center gap-1.5">
+                  <Plus size={13} /> Nouvelle armoire
+                </button>
+              </div>
             </div>
             {armoires.length === 0 ? (
               <div className="p-8 text-center text-text-muted text-sm">Aucune armoire enregistree.</div>
@@ -1625,6 +1635,11 @@ function TabEclairage() {
         <CreateArmoireModal onClose={() => setShowCreateArmoire(false)} onSaved={() => { setShowCreateArmoire(false); load(); }} />
       )}
       {showRapport && <RapportModal domain="eclairage" onClose={() => setShowRapport(false)} />}
+      <ImportEclairageModal
+        open={showImportEclairage}
+        onClose={() => setShowImportEclairage(false)}
+        onSuccess={() => { setShowImportEclairage(false); load(); }}
+      />
 
       {/* Marches eclairage — communs aux deux sous-onglets */}
       <div className="mt-2 pt-4 border-t border-border">

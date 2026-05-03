@@ -51,6 +51,7 @@ app.use('/api/v1/exports',                 require('./routes/exports'));
 app.use('/api/v1/users',                   require('./routes/users'));
 app.use('/api/v1/settings',                require('./routes/settings'));
 app.use('/api/v1/patrimoine',              require('./routes/patrimoine'));
+app.use('/api/v1/import',                  require('./routes/importEclairage'));
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/api/v1/health', (req, res) => {
