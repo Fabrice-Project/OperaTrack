@@ -5,7 +5,7 @@
  */
 
 import { useState, useRef } from 'react';
-import { X, Download, Upload, CheckCircle, AlertCircle, FileSpreadsheet } from 'lucide-react';
+import { X, Download, Upload, CheckCircle, AlertCircle, FileSpreadsheet, Trash2 } from 'lucide-react';
 
 const BASE_URL = '/api/v1';
 
@@ -14,11 +14,13 @@ function getToken() {
 }
 
 export function ImportEclairageModal({ open, onClose, onSuccess }) {
-  const [file, setFile]         = useState(null);
-  const [dragging, setDragging] = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [results, setResults]   = useState(null);
+  const [file, setFile]             = useState(null);
+  const [dragging, setDragging]     = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [results, setResults]       = useState(null);
   const [downloadLoading, setDownloadLoading] = useState(false);
+  const [clearFirst, setClearFirst] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   const inputRef = useRef();
 
   if (!open) return null;
@@ -54,6 +56,17 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
     else alert('Veuillez déposer un fichier .xlsx');
   };
 
+  // ── Activation de l'option "vider" ────────────────────────────────────────
+  const handleToggleClear = (checked) => {
+    if (checked) {
+      // Demande une confirmation avant d'activer
+      setConfirmClear(true);
+    } else {
+      setClearFirst(false);
+      setConfirmClear(false);
+    }
+  };
+
   // ── Import ────────────────────────────────────────────────────────────────
   const handleImport = async () => {
     if (!file) return;
@@ -63,7 +76,8 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch(`${BASE_URL}/import/eclairage`, {
+      const url = `${BASE_URL}/import/eclairage${clearFirst ? '?clearFirst=true' : ''}`;
+      const res = await fetch(url, {
         method: 'POST',
         headers: { Authorization: `Bearer ${getToken()}` },
         body: formData,
@@ -83,11 +97,49 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
   const handleClose = () => {
     setFile(null);
     setResults(null);
+    setClearFirst(false);
+    setConfirmClear(false);
     onClose();
   };
 
   const hasErrors = results &&
     (results.armoires.errors.length > 0 || results.pointsLumineux.errors.length > 0);
+
+  // ── Modale de confirmation purge ──────────────────────────────────────────
+  if (confirmClear) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+              <Trash2 size={18} className="text-red-600" />
+            </div>
+            <h3 className="font-heading font-semibold text-text-main">Confirmer la suppression</h3>
+          </div>
+          <p className="text-sm text-text-muted leading-relaxed">
+            Toutes les <strong>armoires</strong> et tous les <strong>points lumineux</strong> existants seront
+            définitivement supprimés avant l'import. Cette action est <strong>irréversible</strong>.
+          </p>
+          <p className="text-sm text-text-muted">Confirmez-vous la suppression des données existantes ?</p>
+          <div className="flex gap-3 justify-end mt-1">
+            <button
+              onClick={() => { setClearFirst(false); setConfirmClear(false); }}
+              className="btn-secondary text-sm"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={() => { setClearFirst(true); setConfirmClear(false); }}
+              className="text-sm px-4 py-2 rounded-lg font-medium text-white transition-colors"
+              style={{ backgroundColor: '#C0392B' }}
+            >
+              Oui, supprimer
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
@@ -140,43 +192,76 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
             </div>
 
             {!results && (
-              <div
-                className={`ml-7 border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer ${
-                  dragging ? 'border-amber-400 bg-amber-50' : 'border-border hover:border-amber-300'
-                }`}
-                onDragOver={e => { e.preventDefault(); setDragging(true); }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={handleDrop}
-                onClick={() => inputRef.current?.click()}
-              >
-                <Upload size={24} className="mx-auto mb-2 text-text-muted" />
-                {file ? (
+              <>
+                <div
+                  className={`ml-7 border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer ${
+                    dragging ? 'border-amber-400 bg-amber-50' : 'border-border hover:border-amber-300'
+                  }`}
+                  onDragOver={e => { e.preventDefault(); setDragging(true); }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={handleDrop}
+                  onClick={() => inputRef.current?.click()}
+                >
+                  <Upload size={24} className="mx-auto mb-2 text-text-muted" />
+                  {file ? (
+                    <div>
+                      <p className="text-sm font-medium text-text-main">{file.name}</p>
+                      <p className="text-xs text-text-muted mt-0.5">
+                        {(file.size / 1024).toFixed(0)} Ko — cliquer pour changer
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm text-text-muted">Glisser-déposer votre fichier .xlsx ici</p>
+                      <p className="text-xs text-text-muted mt-0.5">ou cliquer pour parcourir</p>
+                    </div>
+                  )}
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    className="hidden"
+                    onChange={e => { const f = e.target.files[0]; if (f) setFile(f); }}
+                  />
+                </div>
+
+                {/* Option purge */}
+                <label className={`ml-7 mt-3 flex items-start gap-2.5 cursor-pointer rounded-xl border p-3 transition-colors ${
+                  clearFirst ? 'border-red-300 bg-red-50' : 'border-border hover:border-red-200'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={clearFirst}
+                    onChange={e => handleToggleClear(e.target.checked)}
+                    className="mt-0.5 accent-red-600 shrink-0"
+                  />
                   <div>
-                    <p className="text-sm font-medium text-text-main">{file.name}</p>
-                    <p className="text-xs text-text-muted mt-0.5">
-                      {(file.size / 1024).toFixed(0)} Ko — cliquer pour changer
+                    <p className="text-sm font-medium text-text-main">
+                      Vider les données existantes avant l'import
                     </p>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      Supprime toutes les armoires et tous les points lumineux actuels,
+                      puis importe les données du fichier. Recommandé pour un chargement initial.
+                    </p>
+                    {clearFirst && (
+                      <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
+                        <Trash2 size={11} /> Les données existantes seront supprimées à l'import
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <div>
-                    <p className="text-sm text-text-muted">Glisser-déposer votre fichier .xlsx ici</p>
-                    <p className="text-xs text-text-muted mt-0.5">ou cliquer pour parcourir</p>
-                  </div>
-                )}
-                <input
-                  ref={inputRef}
-                  type="file"
-                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                  className="hidden"
-                  onChange={e => { const f = e.target.files[0]; if (f) setFile(f); }}
-                />
-              </div>
+                </label>
+              </>
             )}
           </div>
 
           {/* Résultats */}
           {results && (
             <div className="flex flex-col gap-3">
+              {results.purged && (
+                <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-2.5 text-xs text-orange-700 flex items-center gap-2">
+                  <Trash2 size={13} /> Données existantes supprimées avant l'import
+                </div>
+              )}
               <ResultBlock
                 label="Armoires"
                 created={results.armoires.created}
@@ -214,10 +299,15 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
               <button
                 onClick={handleImport}
                 disabled={!file || loading}
-                className="btn-primary text-sm flex items-center gap-2"
+                className={`text-sm flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50 ${
+                  clearFirst ? 'bg-red-600 hover:bg-red-700' : 'btn-primary'
+                }`}
+                style={!clearFirst ? undefined : {}}
               >
                 <Upload size={14} />
-                {loading ? 'Import en cours…' : 'Lancer l\'import'}
+                {loading
+                  ? (clearFirst ? 'Suppression puis import…' : 'Import en cours…')
+                  : (clearFirst ? 'Vider et importer' : 'Lancer l\'import')}
               </button>
             </>
           )}

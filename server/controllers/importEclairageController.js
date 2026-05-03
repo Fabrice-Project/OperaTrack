@@ -155,12 +155,33 @@ exports.downloadTemplate = async (req, res) => {
 exports.importEclairage = async (req, res) => {
   if (!req.file) return error(res, 'Aucun fichier fourni', 400);
 
+  const clearFirst = req.query.clearFirst === 'true' || req.body?.clearFirst === true;
+
   const results = {
+    purged:         false,
     armoires:       { created: 0, updated: 0, errors: [] },
     pointsLumineux: { created: 0, updated: 0, errors: [] },
   };
 
   try {
+    // ── Purge optionnelle ─────────────────────────────────────────────────────
+    if (clearFirst) {
+      // Points lumineux d'abord (FK → armoires_eclairage)
+      const { error: e1 } = await supabaseAdmin
+        .from('points_lumineux')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // supprime tout
+      if (e1) throw new Error(`Purge points_lumineux : ${e1.message}`);
+
+      const { error: e2 } = await supabaseAdmin
+        .from('armoires_eclairage')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      if (e2) throw new Error(`Purge armoires_eclairage : ${e2.message}`);
+
+      results.purged = true;
+    }
+
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(req.file.buffer);
 
