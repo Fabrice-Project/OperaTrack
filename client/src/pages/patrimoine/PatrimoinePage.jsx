@@ -1638,7 +1638,7 @@ function TabEclairage() {
       <ImportEclairageModal
         open={showImportEclairage}
         onClose={() => setShowImportEclairage(false)}
-        onSuccess={() => { setShowImportEclairage(false); load(); }}
+        onSuccess={() => { load(); }}
       />
 
       {/* Marches eclairage — communs aux deux sous-onglets */}

@@ -84,8 +84,9 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || `Erreur ${res.status}`);
+      // Ne pas appeler onSuccess ici — on affiche d'abord les résultats,
+      // l'utilisateur ferme lui-même avec le bouton "Fermer"
       setResults(json.data);
-      onSuccess?.();
     } catch (e) {
       alert(e.message);
     } finally {
@@ -287,8 +288,20 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
                   <CheckCircle size={14} /> Import terminé avec succès
                 </p>
               )}
-              <button onClick={handleClose} className="btn-primary text-sm px-4">
-                Fermer
+              {hasErrors && (
+                <p className="text-xs text-red-600 flex items-center gap-1 mr-auto">
+                  <AlertCircle size={14} /> Import terminé avec des erreurs
+                </p>
+              )}
+              <button
+                onClick={() => {
+                  // Rafraîchit les données du parent puis ferme
+                  onSuccess?.();
+                  handleClose();
+                }}
+                className="btn-primary text-sm px-4"
+              >
+                Fermer et actualiser
               </button>
             </>
           ) : (
