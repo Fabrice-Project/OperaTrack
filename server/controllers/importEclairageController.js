@@ -10,28 +10,75 @@ const { supabaseAdmin } = require('../utils/supabase');
 const { success, error } = require('../utils/response');
 
 // ── Valeurs énumérées ─────────────────────────────────────────────────────────
-const TYPE_LAMPE_VALS  = ['led', 'sodium_hp', 'fluocompacte', 'mercure', 'autre'];
+const TYPE_LAMPE_VALS   = ['led', 'sodium_hp', 'fluocompacte', 'mercure', 'autre'];
 const ETAT_GENERAL_VALS = ['fonctionnel', 'defaillant', 'hors_service', 'en_travaux'];
 
-// ── Helper : normalise une valeur enum (minuscule + trim) ─────────────────────
-function normalizeEnum(val, allowed) {
-  if (val == null) return null;
-  const v = String(val).trim().toLowerCase();
-  return allowed.includes(v) ? v : null;
+// ── Helper : extrait la valeur brute d'une cellule ExcelJS ────────────────────
+// ExcelJS peut retourner des objets richText, formule ou hyperlien
+function cellVal(raw) {
+  if (raw == null) return null;
+  // Objet richText : { richText: [{text: '...'}, ...] }
+  if (typeof raw === 'object' && Array.isArray(raw.richText)) {
+    return raw.richText.map(r => r.text || '').join('');
+  }
+  // Résultat de formule : { formula: '...', result: ... }
+  if (typeof raw === 'object' && raw.result !== undefined) {
+    return cellVal(raw.result); // récursif pour gérer les résultats complexes
+  }
+  // Hyperlien : { text: '...', hyperlink: '...' }
+  if (typeof raw === 'object' && raw.text != null && raw.hyperlink != null) {
+    return raw.text;
+  }
+  // Date object — retourné tel quel pour parseYear
+  if (raw instanceof Date) return raw;
+  return raw;
 }
 
-// ── Helper : parse un nombre ou retourne null ─────────────────────────────────
-function parseNum(val) {
-  if (val == null || val === '') return null;
-  const n = parseFloat(String(val).replace(',', '.'));
-  return isNaN(n) ? null : n;
+// ── Helper : extrait une chaîne propre ou null ────────────────────────────────
+function parseStr(raw) {
+  const v = cellVal(raw);
+  if (v == null) return null;
+  if (v instanceof Date) return null;
+  const s = String(v).trim();
+  return s === '' ? null : s;
+}
+
+// ── Helper : parse un nombre décimal arrondi à `decimals` chiffres ────────────
+function parseNum(raw, decimals = 6) {
+  const v = cellVal(raw);
+  if (v == null || v === '') return null;
+  if (v instanceof Date) return null;
+  const n = parseFloat(String(v).replace(',', '.').replace(/\s/g, ''));
+  if (isNaN(n)) return null;
+  // Arrondi pour éliminer les artefacts flottants IEEE 754
+  return Math.round(n * Math.pow(10, decimals)) / Math.pow(10, decimals);
+}
+
+// ── Helper : parse un nombre ENTIER (watts, etc.) ────────────────────────────
+function parseInt_(raw) {
+  const v = cellVal(raw);
+  if (v == null || v === '') return null;
+  if (v instanceof Date) return null;
+  const n = parseFloat(String(v).replace(',', '.').replace(/\s/g, ''));
+  return isNaN(n) ? null : Math.round(n);
 }
 
 // ── Helper : parse une année entière ou null ──────────────────────────────────
-function parseYear(val) {
-  if (val == null || val === '') return null;
-  const n = parseInt(String(val), 10);
+function parseYear(raw) {
+  const v = cellVal(raw);
+  if (v == null || v === '') return null;
+  // Excel stocke parfois les années comme des objets Date
+  if (v instanceof Date) return v.getFullYear();
+  const n = parseInt(String(v), 10);
   return isNaN(n) ? null : n;
+}
+
+// ── Helper : normalise une valeur enum (minuscule + trim) ─────────────────────
+function normalizeEnum(raw, allowed) {
+  const v = parseStr(raw);
+  if (v == null) return null;
+  const lower = v.toLowerCase();
+  return allowed.includes(lower) ? lower : null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -188,33 +235,32 @@ exports.importEclairage = async (req, res) => {
     // ── Feuille Armoires ──────────────────────────────────────────────────────
     const wsArm = wb.getWorksheet('Armoires');
     if (wsArm) {
-      const armRows = [];
-      wsArm.eachRow({ includeEmpty: false }, (row, rowNum) => {
-        if (rowNum === 1) return; // header
-        const vals = row.values; // index 1-based
-        armRows.push(vals);
+      const armRowNums = [];
+      wsArm.eachRow({ includeEmpty: false }, (_, rowNum) => {
+        if (rowNum > 1) armRowNums.push(rowNum);
       });
 
-      for (let i = 0; i < armRows.length; i++) {
-        const v = armRows[i];
-        const rowNum = i + 2; // 1=header
-        const intitule = v[1] != null ? String(v[1]).trim() : '';
-        if (!intitule) continue; // ignorer lignes vides
+      for (const rowNum of armRowNums) {
+        const row = wsArm.getRow(rowNum);
+        // Lecture cellule par cellule (plus robuste que row.values)
+        const c = n => row.getCell(n).value;
+
+        const intitule = parseStr(c(1));
+        if (!intitule) continue; // ignorer lignes vides ou ligne exemple
 
         const payload = {
           intitule,
-          localisation: v[2] != null ? String(v[2]).trim() || null : null,
-          latitude:     parseNum(v[3]),
-          longitude:    parseNum(v[4]),
-          type_armoire: v[5] != null ? String(v[5]).trim() || null : null,
-          puissance_kva: parseNum(v[6]),
-          numero_serie: v[7] != null ? String(v[7]).trim() || null : null,
-          annee_pose:   parseYear(v[8]),
-          commentaire:  v[9] != null ? String(v[9]).trim() || null : null,
+          localisation:  parseStr(c(2)),
+          latitude:      parseNum(c(3), 6),
+          longitude:     parseNum(c(4), 6),
+          type_armoire:  parseStr(c(5)),
+          puissance_kva: parseNum(c(6), 3),
+          numero_serie:  parseStr(c(7)),
+          annee_pose:    parseYear(c(8)),
+          commentaire:   parseStr(c(9)),
         };
 
         try {
-          // Cherche une armoire existante par intitulé
           const { data: existing } = await supabaseAdmin
             .from('armoires_eclairage')
             .select('id')
@@ -251,37 +297,36 @@ exports.importEclairage = async (req, res) => {
     // ── Feuille Points lumineux ───────────────────────────────────────────────
     const wsPL = wb.getWorksheet('Points lumineux');
     if (wsPL) {
-      const plRows = [];
-      wsPL.eachRow({ includeEmpty: false }, (row, rowNum) => {
-        if (rowNum === 1) return;
-        plRows.push(row.values);
+      const plRowNums = [];
+      wsPL.eachRow({ includeEmpty: false }, (_, rowNum) => {
+        if (rowNum > 1) plRowNums.push(rowNum);
       });
 
-      for (let i = 0; i < plRows.length; i++) {
-        const v = plRows[i];
-        const rowNum = i + 2;
-        const reference = v[1] != null ? String(v[1]).trim() : '';
+      for (const rowNum of plRowNums) {
+        const row = wsPL.getRow(rowNum);
+        const c = n => row.getCell(n).value;
+
+        const reference = parseStr(c(1));
         if (!reference) continue;
 
-        const armoireIntitule = v[2] != null ? String(v[2]).trim() : '';
+        const armoireIntitule = parseStr(c(2));
         const armoire_id = armoireIntitule ? (armoireMap[armoireIntitule] || null) : null;
 
-        const typeLampe  = normalizeEnum(v[8], TYPE_LAMPE_VALS);
-        const etatGen    = normalizeEnum(v[11], ETAT_GENERAL_VALS);
+        const etatGen = normalizeEnum(c(11), ETAT_GENERAL_VALS) || 'fonctionnel';
 
         const payload = {
           reference,
           armoire_id,
-          localisation: v[3] != null ? String(v[3]).trim() || null : null,
-          latitude:     parseNum(v[4]),
-          longitude:    parseNum(v[5]),
-          type_support: v[6] != null ? String(v[6]).trim() || null : null,
-          hauteur_m:    parseNum(v[7]),
-          type_lampe:   typeLampe,
-          puissance_w:  parseNum(v[9]),
-          annee_pose:   parseYear(v[10]),
+          localisation: parseStr(c(3)),
+          latitude:     parseNum(c(4), 6),
+          longitude:    parseNum(c(5), 6),
+          type_support: parseStr(c(6)),
+          hauteur_m:    parseNum(c(7), 2),
+          type_lampe:   normalizeEnum(c(8), TYPE_LAMPE_VALS),
+          puissance_w:  parseInt_(c(9)),   // entier — watts
+          annee_pose:   parseYear(c(10)),
           etat_general: etatGen,
-          commentaire:  v[12] != null ? String(v[12]).trim() || null : null,
+          commentaire:  parseStr(c(12)),
         };
 
         try {
