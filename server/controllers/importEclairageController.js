@@ -388,22 +388,30 @@ exports.geocodeArmoires = async (req, res) => {
       .is('localisation', null)
       .not('latitude', 'is', null)
       .not('longitude', 'is', null)
-      .limit(45); // ~51s max, dans la limite Vercel
+      .limit(20); // 20 × 1.15s ≈ 23s, confortable même en local
 
-    if (fetchErr) return error(res, fetchErr.message);
+    if (fetchErr) {
+      console.error('[geocode] fetchErr:', fetchErr.message);
+      return error(res, fetchErr.message);
+    }
     if (!armoires || armoires.length === 0) {
       return success(res, { geocoded: 0, remaining: 0 });
     }
 
+    console.log(`[geocode] ${armoires.length} armoire(s) à géocoder`);
+
     let geocoded = 0;
     for (const arm of armoires) {
+      console.log(`[geocode] ${arm.intitule} lat=${arm.latitude} lng=${arm.longitude}`);
       const adresse = await reverseGeocode(arm.latitude, arm.longitude);
+      console.log(`[geocode] → ${adresse || 'aucun résultat'}`);
       if (adresse) {
-        await supabaseAdmin
+        const { error: updErr } = await supabaseAdmin
           .from('armoires_eclairage')
           .update({ localisation: adresse })
           .eq('id', arm.id);
-        geocoded++;
+        if (updErr) console.error(`[geocode] update error:`, updErr.message);
+        else geocoded++;
       }
       await sleep(1150);
     }
@@ -416,6 +424,7 @@ exports.geocodeArmoires = async (req, res) => {
       .not('latitude', 'is', null)
       .not('longitude', 'is', null);
 
+    console.log(`[geocode] terminé: ${geocoded} géocodées, ${remaining ?? 0} restantes`);
     return success(res, { geocoded, remaining: remaining || 0 });
   } catch (e) {
     console.error('geocodeArmoires', e);
