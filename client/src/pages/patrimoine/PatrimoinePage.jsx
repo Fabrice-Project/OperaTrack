@@ -1552,10 +1552,12 @@ function TabEclairage() {
                 {points.filter(p => p.latitude && p.longitude).map(p => (
                   <CircleMarker key={p.id} center={[p.latitude, p.longitude]}
                     radius={selectedPLId === p.id ? 9 : 6}
-                    fillColor={ETAT_COLORS[p.etat_general] || '#6B7280'}
-                    color={selectedPLId === p.id ? '#D97706' : '#fff'}
-                    weight={selectedPLId === p.id ? 3 : 2}
-                    fillOpacity={0.85}
+                    pathOptions={{
+                      fillColor:   ETAT_COLORS[p.etat_general] || '#6B7280',
+                      color:       selectedPLId === p.id ? '#D97706' : '#fff',
+                      weight:      selectedPLId === p.id ? 3 : 2,
+                      fillOpacity: 0.85,
+                    }}
                     eventHandlers={{
                       dblclick: (e) => {
                         L.DomEvent.stop(e);
