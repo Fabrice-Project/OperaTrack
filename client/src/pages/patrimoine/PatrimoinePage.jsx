@@ -1405,6 +1405,39 @@ function TabEclairage() {
   const [showImportEclairage, setShowImportEclairage] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
   const [marcheRefreshKey, setMarcheRefreshKey] = useState(0);
+  // Sélection depuis la carte
+  const [selectedPLId, setSelectedPLId] = useState(null);
+  const [editingEtat, setEditingEtat]   = useState(null);
+  const [savingEtat, setSavingEtat]     = useState(false);
+
+  // ── Double-clic carte → sélectionne + scroll la ligne dans le tableau ────────
+  const handleSelectPL = (id) => {
+    const p = points.find(pt => pt.id === id);
+    if (!p) return;
+    setSelectedPLId(id);
+    setEditingEtat(p.etat_general);
+    setTimeout(() => {
+      document.getElementById(`pl-row-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 60);
+  };
+
+  const handleSaveEtat = async () => {
+    if (!selectedPLId) return;
+    const p = points.find(pt => pt.id === selectedPLId);
+    if (!p) return;
+    if (editingEtat === p.etat_general) { setSelectedPLId(null); setEditingEtat(null); return; }
+    setSavingEtat(true);
+    try {
+      await api.put(`/patrimoine/eclairage/points/${selectedPLId}`, { etat_general: editingEtat });
+      setPoints(prev => prev.map(pt => pt.id === selectedPLId ? { ...pt, etat_general: editingEtat } : pt));
+      toast.success('État mis à jour');
+      setSelectedPLId(null);
+      setEditingEtat(null);
+    } catch (err) { toast.error(err.message); }
+    finally { setSavingEtat(false); }
+  };
+
+  const handleCancelEtat = () => { setSelectedPLId(null); setEditingEtat(null); };
 
   const handleGeocode = async () => {
     setGeocoding(true);
@@ -1517,9 +1550,24 @@ function TabEclairage() {
               <MapContainer center={mapCenterPL} zoom={13} style={{ height: 260, width: '100%' }} zoomControl={false}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 {points.filter(p => p.latitude && p.longitude).map(p => (
-                  <CircleMarker key={p.id} center={[p.latitude, p.longitude]} radius={6}
-                    fillColor={ETAT_COLORS[p.etat_general] || '#6B7280'} color="#fff" weight={2} fillOpacity={0.85}>
-                    <Popup>{p.reference}<br />{ETAT_LABELS[p.etat_general]}</Popup>
+                  <CircleMarker key={p.id} center={[p.latitude, p.longitude]}
+                    radius={selectedPLId === p.id ? 9 : 6}
+                    fillColor={ETAT_COLORS[p.etat_general] || '#6B7280'}
+                    color={selectedPLId === p.id ? '#D97706' : '#fff'}
+                    weight={selectedPLId === p.id ? 3 : 2}
+                    fillOpacity={0.85}
+                    eventHandlers={{
+                      dblclick: (e) => {
+                        L.DomEvent.stop(e);
+                        handleSelectPL(p.id);
+                      },
+                    }}
+                  >
+                    <Popup>
+                      <strong>{p.reference}</strong><br />
+                      {ETAT_LABELS[p.etat_general]}<br />
+                      <em style={{ fontSize: 11 }}>Double-cliquer pour modifier l'état</em>
+                    </Popup>
                   </CircleMarker>
                 ))}
               </MapContainer>
@@ -1557,18 +1605,54 @@ function TabEclairage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {points.map((p, i) => (
-                      <tr key={p.id} className={`border-b border-border hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
-                        <td className="py-2.5 px-3 text-sm font-mono font-medium text-text-main">{p.reference}</td>
-                        <td className="py-2.5 px-3 text-sm text-text-muted">{p.armoires_eclairage?.intitule || '—'}</td>
-                        <td className="py-2.5 px-3 text-sm text-text-muted">{p.type_lampe || '—'}</td>
-                        <td className="py-2.5 px-3 text-sm font-mono text-text-muted">{p.puissance_w ? `${p.puissance_w} W` : '—'}</td>
-                        <td className="py-2.5 px-3"><EtatBadge etat={p.etat_general} /></td>
-                        <td className="py-2.5 px-2">
-                          <button onClick={() => navigate(`/patrimoine/eclairage/${p.id}`)} className="btn-secondary text-xs px-2 py-1">Voir</button>
-                        </td>
-                      </tr>
-                    ))}
+                    {points.map((p, i) => {
+                      const isSelected = selectedPLId === p.id;
+                      return (
+                        <tr
+                          id={`pl-row-${p.id}`}
+                          key={p.id}
+                          className={`border-b border-border transition-colors ${
+                            isSelected
+                              ? 'bg-amber-50 outline outline-1 outline-amber-300'
+                              : `hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`
+                          }`}
+                        >
+                          <td className="py-2.5 px-3 text-sm font-mono font-medium text-text-main">{p.reference}</td>
+                          <td className="py-2.5 px-3 text-sm text-text-muted">{p.armoires_eclairage?.intitule || '—'}</td>
+                          <td className="py-2.5 px-3 text-sm text-text-muted">{p.type_lampe || '—'}</td>
+                          <td className="py-2.5 px-3 text-sm font-mono text-text-muted">{p.puissance_w ? `${p.puissance_w} W` : '—'}</td>
+                          <td className="py-2.5 px-3">
+                            {isSelected ? (
+                              <div className="flex items-center gap-1.5">
+                                <select
+                                  value={editingEtat ?? p.etat_general}
+                                  onChange={e => setEditingEtat(e.target.value)}
+                                  disabled={savingEtat}
+                                  autoFocus
+                                  className="text-xs border border-amber-300 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                  onKeyDown={e => { if (e.key === 'Enter') handleSaveEtat(); if (e.key === 'Escape') handleCancelEtat(); }}
+                                >
+                                  {['fonctionnel', 'defaillant', 'hors_service', 'en_travaux'].map(k => (
+                                    <option key={k} value={k}>{ETAT_LABELS[k]}</option>
+                                  ))}
+                                </select>
+                                <button onClick={handleSaveEtat} disabled={savingEtat}
+                                  className="text-xs px-1.5 py-0.5 rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 font-bold"
+                                  title="Enregistrer (Entrée)">✓</button>
+                                <button onClick={handleCancelEtat} disabled={savingEtat}
+                                  className="text-xs px-1.5 py-0.5 rounded border border-gray-300 text-gray-500 hover:bg-gray-100"
+                                  title="Annuler (Échap)">✗</button>
+                              </div>
+                            ) : (
+                              <EtatBadge etat={p.etat_general} />
+                            )}
+                          </td>
+                          <td className="py-2.5 px-2">
+                            <button onClick={() => navigate(`/patrimoine/eclairage/${p.id}`)} className="btn-secondary text-xs px-2 py-1">Voir</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
