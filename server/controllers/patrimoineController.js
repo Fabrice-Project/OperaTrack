@@ -99,7 +99,7 @@ const deleteTroncon = async (req, res) => {
 const getArmoires = async (req, res) => {
   const [{ data: armoires, error: e1 }, { data: plAll, error: e2 }] = await Promise.all([
     supabaseAdmin.from('armoires_eclairage').select('*').order('intitule'),
-    supabaseAdmin.from('points_lumineux').select('armoire_id, etat_general'),
+    supabaseAdmin.from('points_lumineux').select('armoire_id, etat_general').limit(10000),
   ]);
   if (e1) return error(res, e1.message);
 
@@ -179,7 +179,8 @@ const getPointsLumineux = async (req, res) => {
   const { data, error: dbErr } = await supabaseAdmin
     .from('points_lumineux')
     .select('*, armoires_eclairage(intitule, localisation)')
-    .order('reference');
+    .order('reference')
+    .limit(10000);
   if (dbErr) return error(res, dbErr.message);
   success(res, data || []);
 };
@@ -246,7 +247,8 @@ const updatePointLumineux = async (req, res) => {
 const getEclairageKpis = async (req, res) => {
   const { data: points, error: dbErr } = await supabaseAdmin
     .from('points_lumineux')
-    .select('etat_general, type_lampe, puissance_w');
+    .select('etat_general, type_lampe, puissance_w')
+    .limit(10000);
   if (dbErr) return error(res, dbErr.message);
 
   const total = (points || []).length;
@@ -790,7 +792,7 @@ const getVoirieInterventions = async (req, res) => {
 
   let elementQuery;
   if (isMobilier)       elementQuery = supabaseAdmin.from('mobilier_urbain').select('id, type, reference_terrain');
-  else if (isEclairage) elementQuery = supabaseAdmin.from('points_lumineux').select('id, reference, localisation');
+  else if (isEclairage) elementQuery = supabaseAdmin.from('points_lumineux').select('id, reference, localisation').limit(10000);
   else if (isArmoire)   elementQuery = supabaseAdmin.from('armoires_eclairage').select('id, intitule, localisation');
   else if (isBatiment)  elementQuery = supabaseAdmin.from('batiments').select('id, intitule');
   else                  elementQuery = supabaseAdmin.from('troncons_voirie').select('id, intitule');
@@ -861,7 +863,7 @@ const getDashboard = async (req, res) => {
     { data: interventionsActives },
   ] = await Promise.all([
     supabaseAdmin.from('troncons_voirie').select('etat_general, longueur_ml, largeur_m'),
-    supabaseAdmin.from('points_lumineux').select('id, etat_general, type_lampe'),
+    supabaseAdmin.from('points_lumineux').select('id, etat_general, type_lampe').limit(10000),
     supabaseAdmin.from('batiments').select('id, intitule, dpe_classe, surface_plancher_m2'),
     supabaseAdmin.from('equipements_batiments').select('id, batiment_id, intitule, date_prochain_controle'),
     supabaseAdmin.from('interventions_patrimoine')
