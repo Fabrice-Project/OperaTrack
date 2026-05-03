@@ -267,7 +267,6 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
                 label="Armoires"
                 created={results.armoires.created}
                 updated={results.armoires.updated}
-                geocoded={results.armoires.geocoded || 0}
                 errors={results.armoires.errors}
               />
               <ResultBlock

@@ -23,4 +23,7 @@ router.get('/eclairage/template', ctrl.downloadTemplate);
 // Import — écriture, bloqué pour directeur
 router.post('/eclairage', requireWriteAccess, upload.single('file'), ctrl.importEclairage);
 
+// Géocodage des armoires sans adresse (max 45 par appel)
+router.post('/eclairage/geocode', requireWriteAccess, ctrl.geocodeArmoires);
+
 module.exports = router;

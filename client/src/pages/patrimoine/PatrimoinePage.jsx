@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
-import { Plus, Route, Lightbulb, Building2, X, FileDown, Sheet, Briefcase, ChevronDown, ChevronRight, RefreshCw, ClipboardList, Edit2, Search, Undo2, Trash2, FileUp } from 'lucide-react';
+import { Plus, Route, Lightbulb, Building2, X, FileDown, Sheet, Briefcase, ChevronDown, ChevronRight, RefreshCw, ClipboardList, Edit2, Search, Undo2, Trash2, FileUp, MapPin } from 'lucide-react';
 import { ImportEclairageModal } from './eclairage/ImportEclairageModal';
 import { RapportModal } from '../../components/patrimoine/RapportModal';
 import {
@@ -1403,7 +1403,33 @@ function TabEclairage() {
   const [showCreatePL, setShowCreatePL]         = useState(false);
   const [showCreateArmoire, setShowCreateArmoire] = useState(false);
   const [showImportEclairage, setShowImportEclairage] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
   const [marcheRefreshKey, setMarcheRefreshKey] = useState(0);
+
+  const handleGeocode = async () => {
+    setGeocoding(true);
+    try {
+      const token = localStorage.getItem('opera_token');
+      let totalGeocoded = 0;
+      let remaining = 1; // valeur initiale > 0 pour entrer dans la boucle
+      while (remaining > 0) {
+        const res = await fetch('/api/v1/import/eclairage/geocode', {
+          method: 'POST', headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error || 'Erreur géocodage');
+        totalGeocoded += json.data.geocoded;
+        remaining = json.data.remaining;
+        if (json.data.geocoded === 0) break; // sécurité anti-boucle infinie
+      }
+      toast.success(`${totalGeocoded} adresse${totalGeocoded > 1 ? 's' : ''} géocodée${totalGeocoded > 1 ? 's' : ''}`);
+      await load();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setGeocoding(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1582,6 +1608,16 @@ function TabEclairage() {
             <div className="flex items-center justify-between p-4 border-b border-border">
               <h4 className="font-heading font-semibold text-sm text-text-main">Armoires ({armoires.length})</h4>
               <div className="flex gap-2">
+                {armoires.some(a => !a.localisation && a.latitude) && (
+                  <button
+                    onClick={handleGeocode}
+                    disabled={geocoding}
+                    className="btn-secondary text-xs flex items-center gap-1.5"
+                    title="Remplir automatiquement les adresses manquantes depuis les coordonnées GPS"
+                  >
+                    <MapPin size={13} /> {geocoding ? 'Géocodage…' : `Géocoder (${armoires.filter(a => !a.localisation && a.latitude).length})`}
+                  </button>
+                )}
                 <button onClick={() => setShowImportEclairage(true)} className="btn-secondary text-xs flex items-center gap-1.5">
                   <FileUp size={13} /> Importer
                 </button>
