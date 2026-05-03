@@ -5,9 +5,62 @@
  * POST /api/v1/import/eclairage           → importe un fichier Excel rempli
  */
 
+const https    = require('https');
 const ExcelJS  = require('exceljs');
 const { supabaseAdmin } = require('../utils/supabase');
 const { success, error } = require('../utils/response');
+
+// ── Géocodage inversé — Nominatim (OpenStreetMap) ─────────────────────────────
+
+/** GET JSON depuis une URL HTTPS (sans dépendance externe) */
+function httpsGetJSON(url) {
+  return new Promise(resolve => {
+    const opts = {
+      headers: {
+        'User-Agent': 'OperaTrack/1.0 (suivi-patrimoine@ville-denain.fr)',
+        'Accept-Language': 'fr,fr-FR',
+      },
+    };
+    https.get(url, opts, res => {
+      let raw = '';
+      res.on('data', chunk => { raw += chunk; });
+      res.on('end', () => {
+        try { resolve(JSON.parse(raw)); }
+        catch { resolve(null); }
+      });
+    }).on('error', () => resolve(null));
+  });
+}
+
+/** Pause respectant la limite Nominatim : 1 req / sec */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/**
+ * Géocodage inversé : lat/lng → adresse formatée
+ * Retourne null si l'appel échoue ou ne donne aucun résultat.
+ */
+async function reverseGeocode(lat, lng) {
+  const url = `https://nominatim.openstreetmap.org/reverse`
+            + `?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`
+            + `&format=json&addressdetails=1`;
+  const data = await httpsGetJSON(url);
+  if (!data || !data.address) return null;
+
+  const a = data.address;
+  const parts = [];
+
+  // Numéro + voie
+  if (a.house_number) parts.push(a.house_number);
+  if (a.road || a.pedestrian || a.footway || a.path) {
+    parts.push(a.road || a.pedestrian || a.footway || a.path);
+  }
+  // Code postal + commune
+  const city = a.city || a.town || a.village || a.municipality || a.hamlet;
+  if (a.postcode && city) parts.push(`${a.postcode} ${city}`);
+  else if (city)           parts.push(city);
+
+  return parts.length ? parts.join(', ') : null;
+}
 
 // ── Valeurs énumérées ─────────────────────────────────────────────────────────
 const TYPE_LAMPE_VALS   = ['led', 'sodium_hp', 'fluocompacte', 'mercure', 'autre'];
@@ -206,7 +259,7 @@ exports.importEclairage = async (req, res) => {
 
   const results = {
     purged:         false,
-    armoires:       { created: 0, updated: 0, errors: [] },
+    armoires:       { created: 0, updated: 0, geocoded: 0, errors: [] },
     pointsLumineux: { created: 0, updated: 0, errors: [] },
   };
 
@@ -259,6 +312,16 @@ exports.importEclairage = async (req, res) => {
           annee_pose:    parseYear(c(8)),
           commentaire:   parseStr(c(9)),
         };
+
+        // ── Géocodage inversé si adresse absente mais coordonnées présentes ──
+        if (!payload.localisation && payload.latitude != null && payload.longitude != null) {
+          const adresse = await reverseGeocode(payload.latitude, payload.longitude);
+          if (adresse) {
+            payload.localisation = adresse;
+            results.armoires.geocoded++;
+          }
+          await sleep(1150); // Respect Nominatim : 1 req/sec max
+        }
 
         try {
           const { data: existing } = await supabaseAdmin

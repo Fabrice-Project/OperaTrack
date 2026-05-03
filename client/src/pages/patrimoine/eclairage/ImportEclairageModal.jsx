@@ -5,7 +5,7 @@
  */
 
 import { useState, useRef } from 'react';
-import { X, Download, Upload, CheckCircle, AlertCircle, FileSpreadsheet, Trash2 } from 'lucide-react';
+import { X, Download, Upload, CheckCircle, AlertCircle, FileSpreadsheet, Trash2, MapPin } from 'lucide-react';
 
 const BASE_URL = '/api/v1';
 
@@ -267,6 +267,7 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
                 label="Armoires"
                 created={results.armoires.created}
                 updated={results.armoires.updated}
+                geocoded={results.armoires.geocoded || 0}
                 errors={results.armoires.errors}
               />
               <ResultBlock
@@ -331,18 +332,23 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
 }
 
 // ── Bloc résultat par catégorie ───────────────────────────────────────────────
-function ResultBlock({ label, created, updated, errors }) {
+function ResultBlock({ label, created, updated, geocoded, errors }) {
   const hasErr = errors.length > 0;
   return (
     <div className={`rounded-xl border p-4 ${hasErr ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
       <p className="font-medium text-sm text-text-main mb-2">{label}</p>
-      <div className="flex gap-4 text-xs mb-2">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-2">
         <span className="flex items-center gap-1 text-green-700">
           <CheckCircle size={12} /> {created} créé{created !== 1 ? 's' : ''}
         </span>
         <span className="flex items-center gap-1 text-blue-700">
           <CheckCircle size={12} /> {updated} mis à jour
         </span>
+        {geocoded > 0 && (
+          <span className="flex items-center gap-1 text-violet-700">
+            <MapPin size={12} /> {geocoded} adresse{geocoded !== 1 ? 's' : ''} géocodée{geocoded !== 1 ? 's' : ''}
+          </span>
+        )}
         {hasErr && (
           <span className="flex items-center gap-1 text-red-700">
             <AlertCircle size={12} /> {errors.length} erreur{errors.length !== 1 ? 's' : ''}
