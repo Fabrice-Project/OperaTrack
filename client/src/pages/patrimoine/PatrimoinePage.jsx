@@ -58,9 +58,13 @@ function EtatBadge({ etat }) {
   );
 }
 
-function KpiCard({ label, value, sub, color }) {
+function KpiCard({ label, value, sub, color, onClick }) {
   return (
-    <div className="card p-4 flex flex-col gap-1">
+    <div
+      className={`card p-4 flex flex-col gap-1 ${onClick ? 'cursor-pointer hover:shadow-md hover:ring-1 hover:ring-amber-300 transition-all' : ''}`}
+      onClick={onClick}
+      title={onClick ? 'Cliquer pour filtrer la liste' : undefined}
+    >
       <div className="text-xs text-text-muted uppercase tracking-wide font-medium">{label}</div>
       <div className="font-mono font-bold text-2xl" style={{ color: color || 'var(--color-text-main)' }}>{value}</div>
       {sub && <div className="text-xs text-text-muted">{sub}</div>}
@@ -1443,9 +1447,10 @@ function TabEclairage() {
   const [selectedPLId, setSelectedPLId] = useState(null);
   const [editingEtat, setEditingEtat]   = useState(null);
   const [savingEtat, setSavingEtat]     = useState(false);
-  // Tableau repliable + filtre
-  const [tableOpen, setTableOpen]   = useState(false);
-  const [plSearch, setPlSearch]     = useState('');
+  // Tableau repliable + filtres
+  const [tableOpen, setTableOpen]     = useState(false);
+  const [plSearch, setPlSearch]       = useState('');
+  const [plEtatFilter, setPlEtatFilter] = useState(null); // null = tous, ou ['defaillant','hors_service']
 
   // ── Double-clic carte → sélectionne + scroll la ligne dans le tableau ────────
   const handleSelectPL = (id) => {
@@ -1563,8 +1568,15 @@ function TabEclairage() {
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KpiCard label="Points lumineux" value={kpis?.total || 0} />
-            <KpiCard label="Defaillants / Hors service" value={kpis?.defaillants || 0}
-              color={kpis?.defaillants > 0 ? '#C0392B' : '#1E7E45'} />
+            <KpiCard label="Défaillants / Hors service" value={kpis?.defaillants || 0}
+              color={kpis?.defaillants > 0 ? '#C0392B' : '#1E7E45'}
+              onClick={kpis?.defaillants > 0 ? () => {
+                setTableOpen(true);
+                setPlEtatFilter(['defaillant', 'hors_service']);
+                setPlSearch('');
+                setTimeout(() => document.getElementById('pl-table-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+              } : undefined}
+            />
             <KpiCard label="% LED" value={`${kpis?.pctLed || 0}%`} color="#2563EB" />
             <KpiCard label="Cout prestataires 12m" value={fmtEur(kpis?.cout12Mois)} />
           </div>
@@ -1615,7 +1627,7 @@ function TabEclairage() {
             </div>
           </div>
 
-          <div className="card overflow-hidden">
+          <div id="pl-table-card" className="card overflow-hidden">
             {/* En-tête repliable */}
             <div
               className="flex items-center justify-between p-4 border-b border-border cursor-pointer select-none hover:bg-gray-50 transition-colors"
@@ -1650,8 +1662,16 @@ function TabEclairage() {
                 <div className="p-8 text-center text-text-muted text-sm">Aucun point lumineux enregistré.</div>
               ) : (
                 <>
-                  {/* Barre de recherche */}
-                  <div className="px-4 py-2.5 border-b border-border bg-gray-50/60 flex items-center gap-2">
+                  {/* Barre de recherche + badge filtre état */}
+                  <div className="px-4 py-2.5 border-b border-border bg-gray-50/60 flex items-center gap-2 flex-wrap">
+                    {plEtatFilter && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 shrink-0">
+                        Défaillants / Hors service
+                        <button onClick={() => setPlEtatFilter(null)} className="ml-0.5 hover:text-red-900" title="Effacer le filtre">
+                          <X size={10} />
+                        </button>
+                      </span>
+                    )}
                     <Search size={13} className="text-text-muted shrink-0" />
                     <input
                       type="text"
@@ -1671,12 +1691,11 @@ function TabEclairage() {
                   <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 520 }}>
                     {(() => {
                       const q = plSearch.toLowerCase();
-                      const filtered = q
-                        ? points.filter(p =>
-                            p.reference?.toLowerCase().includes(q) ||
-                            p.armoires_eclairage?.intitule?.toLowerCase().includes(q)
-                          )
-                        : points;
+                      const filtered = points.filter(p => {
+                        if (plEtatFilter && !plEtatFilter.includes(p.etat_general)) return false;
+                        if (q && !p.reference?.toLowerCase().includes(q) && !p.armoires_eclairage?.intitule?.toLowerCase().includes(q)) return false;
+                        return true;
+                      });
                       return (
                         <table className="w-full text-left">
                           <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
@@ -1745,15 +1764,14 @@ function TabEclairage() {
                       );
                     })()}
                   </div>
-                  {plSearch && (
+                  {(plSearch || plEtatFilter) && (
                     <div className="px-4 py-2 text-xs text-text-muted border-t border-border">
-                      {points.filter(p =>
-                        p.reference?.toLowerCase().includes(plSearch.toLowerCase()) ||
-                        p.armoires_eclairage?.intitule?.toLowerCase().includes(plSearch.toLowerCase())
-                      ).length} résultat{points.filter(p =>
-                        p.reference?.toLowerCase().includes(plSearch.toLowerCase()) ||
-                        p.armoires_eclairage?.intitule?.toLowerCase().includes(plSearch.toLowerCase())
-                      ).length !== 1 ? 's' : ''} sur {points.length}
+                      {points.filter(p => {
+                        if (plEtatFilter && !plEtatFilter.includes(p.etat_general)) return false;
+                        const q = plSearch.toLowerCase();
+                        if (q && !p.reference?.toLowerCase().includes(q) && !p.armoires_eclairage?.intitule?.toLowerCase().includes(q)) return false;
+                        return true;
+                      }).length} résultat(s) sur {points.length}
                     </div>
                   )}
                 </>
