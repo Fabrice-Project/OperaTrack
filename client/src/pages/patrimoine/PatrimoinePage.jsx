@@ -1409,6 +1409,9 @@ function TabEclairage() {
   const [selectedPLId, setSelectedPLId] = useState(null);
   const [editingEtat, setEditingEtat]   = useState(null);
   const [savingEtat, setSavingEtat]     = useState(false);
+  // Tableau repliable + filtre
+  const [tableOpen, setTableOpen]   = useState(false);
+  const [plSearch, setPlSearch]     = useState('');
 
   // ── Double-clic carte → sélectionne + scroll la ligne dans le tableau ────────
   const handleSelectPL = (id) => {
@@ -1416,9 +1419,11 @@ function TabEclairage() {
     if (!p) return;
     setSelectedPLId(id);
     setEditingEtat(p.etat_general);
+    setTableOpen(true);           // ouvre le tableau si replié
+    setPlSearch('');              // réinitialise le filtre pour que la ligne soit visible
     setTimeout(() => {
       document.getElementById(`pl-row-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 60);
+    }, 80);
   };
 
   const handleSaveEtat = async () => {
@@ -1577,9 +1582,22 @@ function TabEclairage() {
           </div>
 
           <div className="card overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h4 className="font-heading font-semibold text-sm text-text-main">Points lumineux ({points.length})</h4>
-              <div className="flex gap-2">
+            {/* En-tête repliable */}
+            <div
+              className="flex items-center justify-between p-4 border-b border-border cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              onClick={() => setTableOpen(o => !o)}
+            >
+              <div className="flex items-center gap-2">
+                {tableOpen ? <ChevronDown size={15} className="text-text-muted" /> : <ChevronRight size={15} className="text-text-muted" />}
+                <h4 className="font-heading font-semibold text-sm text-text-main">
+                  Points lumineux
+                  <span className="ml-1.5 font-mono text-xs font-normal text-text-muted">({points.length})</span>
+                  {!tableOpen && selectedPLId && (
+                    <span className="ml-2 text-xs font-normal text-amber-600">• 1 sélectionné</span>
+                  )}
+                </h4>
+              </div>
+              <div className="flex gap-2" onClick={e => e.stopPropagation()}>
                 <button onClick={() => setShowRapport(true)} className="btn-secondary text-xs flex items-center gap-1.5">
                   <FileDown size={13} /> Rapport / Export
                 </button>
@@ -1591,73 +1609,121 @@ function TabEclairage() {
                 </button>
               </div>
             </div>
-            {points.length === 0 ? (
-              <div className="p-8 text-center text-text-muted text-sm">Aucun point lumineux enregistre.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-border bg-gray-50">
-                      <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Reference</th>
-                      <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Armoire</th>
-                      <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Type lampe</th>
-                      <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Puissance</th>
-                      <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Etat</th>
-                      <th className="py-2 px-2 w-16" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {points.map((p, i) => {
-                      const isSelected = selectedPLId === p.id;
+
+            {/* Contenu dépliable */}
+            {tableOpen && (
+              points.length === 0 ? (
+                <div className="p-8 text-center text-text-muted text-sm">Aucun point lumineux enregistré.</div>
+              ) : (
+                <>
+                  {/* Barre de recherche */}
+                  <div className="px-4 py-2.5 border-b border-border bg-gray-50/60 flex items-center gap-2">
+                    <Search size={13} className="text-text-muted shrink-0" />
+                    <input
+                      type="text"
+                      value={plSearch}
+                      onChange={e => setPlSearch(e.target.value)}
+                      placeholder="Filtrer par référence ou armoire…"
+                      className="text-sm bg-transparent outline-none flex-1 text-text-main placeholder:text-text-muted"
+                    />
+                    {plSearch && (
+                      <button onClick={() => setPlSearch('')} className="text-text-muted hover:text-text-main">
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Tableau avec hauteur max et scroll */}
+                  <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 520 }}>
+                    {(() => {
+                      const q = plSearch.toLowerCase();
+                      const filtered = q
+                        ? points.filter(p =>
+                            p.reference?.toLowerCase().includes(q) ||
+                            p.armoires_eclairage?.intitule?.toLowerCase().includes(q)
+                          )
+                        : points;
                       return (
-                        <tr
-                          id={`pl-row-${p.id}`}
-                          key={p.id}
-                          className={`border-b border-border transition-colors ${
-                            isSelected
-                              ? 'bg-amber-50 outline outline-1 outline-amber-300'
-                              : `hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`
-                          }`}
-                        >
-                          <td className="py-2.5 px-3 text-sm font-mono font-medium text-text-main">{p.reference}</td>
-                          <td className="py-2.5 px-3 text-sm text-text-muted">{p.armoires_eclairage?.intitule || '—'}</td>
-                          <td className="py-2.5 px-3 text-sm text-text-muted">{p.type_lampe || '—'}</td>
-                          <td className="py-2.5 px-3 text-sm font-mono text-text-muted">{p.puissance_w ? `${p.puissance_w} W` : '—'}</td>
-                          <td className="py-2.5 px-3">
-                            {isSelected ? (
-                              <div className="flex items-center gap-1.5">
-                                <select
-                                  value={editingEtat ?? p.etat_general}
-                                  onChange={e => setEditingEtat(e.target.value)}
-                                  disabled={savingEtat}
-                                  autoFocus
-                                  className="text-xs border border-amber-300 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
-                                  onKeyDown={e => { if (e.key === 'Enter') handleSaveEtat(); if (e.key === 'Escape') handleCancelEtat(); }}
+                        <table className="w-full text-left">
+                          <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
+                            <tr className="border-b border-border">
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Référence</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Armoire</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Type lampe</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Puissance</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">État</th>
+                              <th className="py-2 px-2 w-16" />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filtered.length === 0 ? (
+                              <tr><td colSpan={6} className="py-6 text-center text-sm text-text-muted">Aucun résultat pour « {plSearch} »</td></tr>
+                            ) : filtered.map((p, i) => {
+                              const isSelected = selectedPLId === p.id;
+                              return (
+                                <tr
+                                  id={`pl-row-${p.id}`}
+                                  key={p.id}
+                                  className={`border-b border-border transition-colors ${
+                                    isSelected
+                                      ? 'bg-amber-50 outline outline-1 outline-amber-300'
+                                      : `hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`
+                                  }`}
                                 >
-                                  {['fonctionnel', 'defaillant', 'hors_service', 'en_travaux'].map(k => (
-                                    <option key={k} value={k}>{ETAT_LABELS[k]}</option>
-                                  ))}
-                                </select>
-                                <button onClick={handleSaveEtat} disabled={savingEtat}
-                                  className="text-xs px-1.5 py-0.5 rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 font-bold"
-                                  title="Enregistrer (Entrée)">✓</button>
-                                <button onClick={handleCancelEtat} disabled={savingEtat}
-                                  className="text-xs px-1.5 py-0.5 rounded border border-gray-300 text-gray-500 hover:bg-gray-100"
-                                  title="Annuler (Échap)">✗</button>
-                              </div>
-                            ) : (
-                              <EtatBadge etat={p.etat_general} />
-                            )}
-                          </td>
-                          <td className="py-2.5 px-2">
-                            <button onClick={() => navigate(`/patrimoine/eclairage/${p.id}`)} className="btn-secondary text-xs px-2 py-1">Voir</button>
-                          </td>
-                        </tr>
+                                  <td className="py-2.5 px-3 text-sm font-mono font-medium text-text-main">{p.reference}</td>
+                                  <td className="py-2.5 px-3 text-sm text-text-muted">{p.armoires_eclairage?.intitule || '—'}</td>
+                                  <td className="py-2.5 px-3 text-sm text-text-muted">{p.type_lampe || '—'}</td>
+                                  <td className="py-2.5 px-3 text-sm font-mono text-text-muted">{p.puissance_w ? `${p.puissance_w} W` : '—'}</td>
+                                  <td className="py-2.5 px-3">
+                                    {isSelected ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <select
+                                          value={editingEtat ?? p.etat_general}
+                                          onChange={e => setEditingEtat(e.target.value)}
+                                          disabled={savingEtat}
+                                          autoFocus
+                                          className="text-xs border border-amber-300 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                          onKeyDown={e => { if (e.key === 'Enter') handleSaveEtat(); if (e.key === 'Escape') handleCancelEtat(); }}
+                                        >
+                                          {['fonctionnel', 'defaillant', 'hors_service', 'en_travaux'].map(k => (
+                                            <option key={k} value={k}>{ETAT_LABELS[k]}</option>
+                                          ))}
+                                        </select>
+                                        <button onClick={handleSaveEtat} disabled={savingEtat}
+                                          className="text-xs px-1.5 py-0.5 rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 font-bold"
+                                          title="Enregistrer (Entrée)">✓</button>
+                                        <button onClick={handleCancelEtat} disabled={savingEtat}
+                                          className="text-xs px-1.5 py-0.5 rounded border border-gray-300 text-gray-500 hover:bg-gray-100"
+                                          title="Annuler (Échap)">✗</button>
+                                      </div>
+                                    ) : (
+                                      <EtatBadge etat={p.etat_general} />
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-2">
+                                    <button onClick={() => navigate(`/patrimoine/eclairage/${p.id}`)} className="btn-secondary text-xs px-2 py-1">Voir</button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                    })()}
+                  </div>
+                  {plSearch && (
+                    <div className="px-4 py-2 text-xs text-text-muted border-t border-border">
+                      {points.filter(p =>
+                        p.reference?.toLowerCase().includes(plSearch.toLowerCase()) ||
+                        p.armoires_eclairage?.intitule?.toLowerCase().includes(plSearch.toLowerCase())
+                      ).length} résultat{points.filter(p =>
+                        p.reference?.toLowerCase().includes(plSearch.toLowerCase()) ||
+                        p.armoires_eclairage?.intitule?.toLowerCase().includes(plSearch.toLowerCase())
+                      ).length !== 1 ? 's' : ''} sur {points.length}
+                    </div>
+                  )}
+                </>
+              )
             )}
           </div>
         </>
