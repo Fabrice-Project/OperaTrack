@@ -485,6 +485,7 @@ function CreateBatimentModal({ onClose, onSaved }) {
         ...form,
         surface_plancher_m2: form.surface_plancher_m2 ? parseFloat(form.surface_plancher_m2) : null,
         annee_construction: form.annee_construction ? parseInt(form.annee_construction) : null,
+        dpe_classe: form.dpe_classe || null,
       });
       toast.success('Bâtiment créé');
       onSaved();

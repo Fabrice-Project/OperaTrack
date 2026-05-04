@@ -29,7 +29,8 @@ router.post('/mouvements',
     body('type').isIn(['engagement', 'mandatement']).withMessage('Type invalide'),
     body('libelle').notEmpty().withMessage('Libellé requis'),
     body('montant').isNumeric().withMessage('Montant invalide'),
-    body('date_mouvement').isDate().withMessage('Date invalide')
+    body('date_mouvement').isDate().withMessage('Date invalide'),
+    body('marche_id').optional({ nullable: true }).isUUID().withMessage('Identifiant de marché invalide')
   ],
   ctrl.createMouvement
 );

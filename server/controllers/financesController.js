@@ -78,7 +78,7 @@ const getMouvements = async (req, res) => {
   const { id: operationId } = req.params;
   const { data, error: dbErr } = await supabaseAdmin
     .from('mouvements_financiers')
-    .select('*')
+    .select('*, marches(id, numero, intitule, titulaire_nom)')
     .eq('operation_id', operationId)
     .order('date_mouvement', { ascending: false });
 
@@ -91,12 +91,12 @@ const createMouvement = async (req, res) => {
   if (!errors.isEmpty()) return error(res, errors.array().map(e => e.msg).join(', '), 400);
 
   const { id: operationId } = req.params;
-  const { type, libelle, montant, date_mouvement, reference, commentaire } = req.body;
+  const { type, libelle, montant, date_mouvement, reference, commentaire, marche_id } = req.body;
 
   const { data, error: dbErr } = await supabaseAdmin
     .from('mouvements_financiers')
-    .insert({ operation_id: operationId, type, libelle, montant: parseFloat(montant), date_mouvement, reference, commentaire })
-    .select()
+    .insert({ operation_id: operationId, marche_id: marche_id || null, type, libelle, montant: parseFloat(montant), date_mouvement, reference, commentaire })
+    .select('*, marches(id, numero, intitule, titulaire_nom)')
     .single();
 
   if (dbErr) return error(res, dbErr.message);

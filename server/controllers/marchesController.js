@@ -47,6 +47,7 @@ const create = async (req, res) => {
   if (req.body.create_engagement !== false) {
     await supabaseAdmin.from('mouvements_financiers').insert({
       operation_id: operationId,
+      marche_id: data.id,
       type: 'engagement',
       libelle: `Engagement marché ${payload.numero} — ${payload.titulaire_nom || payload.intitule}`,
       montant: payload.montant_initial_ht,
@@ -119,6 +120,7 @@ const createAvenant = async (req, res) => {
   // Ajouter un engagement pour l'avenant
   await supabaseAdmin.from('mouvements_financiers').insert({
     operation_id: marche.operation_id,
+    marche_id: marcheId,
     type: 'engagement',
     libelle: `Avenant n°${numero} — ${req.body.objet}`,
     montant: Math.abs(parseFloat(req.body.montant_ht)),

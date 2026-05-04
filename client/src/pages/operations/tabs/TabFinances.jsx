@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Plus, Trash2, Download, AlertTriangle } from 'lucide-react';
 import { useFinances } from '../../../hooks/useFinances';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -143,14 +143,14 @@ export function TabFinances({ operationId }) {
           <table className="w-full text-sm">
             <thead>
               <tr>
-                {['Date', 'Type', 'Libellé', 'Référence', 'Montant', ''].map(h => (
+                {['Date', 'Type', 'Marché', 'Libellé', 'Référence', 'Montant', ''].map(h => (
                   <th key={h} className="table-header text-left">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {mouvements.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8 text-text-muted">Aucun mouvement enregistré.</td></tr>
+                <tr><td colSpan={7} className="text-center py-8 text-text-muted">Aucun mouvement enregistré.</td></tr>
               ) : mouvements.map((m, i) => (
                 <tr key={m.id} className={`${i % 2 === 0 ? 'table-row-even' : 'table-row-odd'}`}>
                   <td className="table-cell font-mono text-xs">{formatDate(m.date_mouvement)}</td>
@@ -160,6 +160,13 @@ export function TabFinances({ operationId }) {
                       : { backgroundColor: '#D1FAE5', color: '#065F46' }}>
                       {m.type === 'engagement' ? 'Engagement' : 'Mandatement'}
                     </span>
+                  </td>
+                  <td className="table-cell text-xs">
+                    {m.marches ? (
+                      <span className="inline-block px-1.5 py-0.5 rounded bg-gray-100 font-mono text-xs text-text-main" title={m.marches.intitule}>
+                        {m.marches.numero || m.marches.intitule}
+                      </span>
+                    ) : <span className="text-text-muted">—</span>}
                   </td>
                   <td className="table-cell max-w-xs truncate">{m.libelle}</td>
                   <td className="table-cell text-text-muted font-mono text-xs">{m.reference || '—'}</td>
@@ -218,11 +225,26 @@ function FinKpi({ label, value, sub, color, alert }) {
 
 function MouvementModal({ operationId, onClose, onSaved }) {
   const toast = useToast();
-  const [form, setForm] = useState({ type: 'engagement', libelle: '', montant: '', date_mouvement: new Date().toISOString().split('T')[0], reference: '', commentaire: '' });
+  const [form, setForm] = useState({
+    type: 'engagement', libelle: '', montant: '',
+    date_mouvement: new Date().toISOString().split('T')[0],
+    reference: '', commentaire: '', marche_id: '',
+  });
   const [saving, setSaving] = useState(false);
+  const [marches, setMarches] = useState([]);
+  const [loadingMarches, setLoadingMarches] = useState(true);
+
+  // Charger les marchés de l'opération
+  useEffect(() => {
+    api.get(`/operations/${operationId}/marches`)
+      .then(data => setMarches(data || []))
+      .catch(() => {})
+      .finally(() => setLoadingMarches(false));
+  }, [operationId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.marche_id) { toast.error('Veuillez sélectionner un marché'); return; }
     setSaving(true);
     try {
       await api.post(`/operations/${operationId}/mouvements`, form);
@@ -238,6 +260,33 @@ function MouvementModal({ operationId, onClose, onSaved }) {
       <div className="card p-6 w-full max-w-lg">
         <h3 className="font-heading font-semibold text-text-main text-base mb-4">Ajouter un mouvement financier</h3>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+
+          {/* Marché — obligatoire */}
+          <div>
+            <label className="form-label">Marché *</label>
+            {loadingMarches ? (
+              <div className="form-input text-text-muted text-sm">Chargement…</div>
+            ) : marches.length === 0 ? (
+              <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Aucun marché enregistré sur cette opération. Créez d'abord un marché dans l'onglet Marchés.
+              </div>
+            ) : (
+              <select
+                className="form-select"
+                value={form.marche_id}
+                onChange={e => setForm(p => ({ ...p, marche_id: e.target.value }))}
+                required
+              >
+                <option value="">— Sélectionner un marché —</option>
+                {marches.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.numero ? `${m.numero} — ` : ''}{m.intitule}{m.titulaire_nom ? ` (${m.titulaire_nom})` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="form-label">Type *</label>
@@ -267,7 +316,9 @@ function MouvementModal({ operationId, onClose, onSaved }) {
           </div>
           <div className="flex justify-end gap-3 mt-2">
             <button type="button" className="btn-secondary" onClick={onClose}>Annuler</button>
-            <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Enregistrement…' : 'Ajouter'}</button>
+            <button type="submit" className="btn-primary" disabled={saving || marches.length === 0}>
+              {saving ? 'Enregistrement…' : 'Ajouter'}
+            </button>
           </div>
         </form>
       </div>

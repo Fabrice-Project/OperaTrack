@@ -303,9 +303,16 @@ const getBatiments = async (req, res) => {
 };
 
 const createBatiment = async (req, res) => {
+  const body = { ...req.body };
+  if (!body.dpe_classe) body.dpe_classe = null;
+  if (body.surface_plancher_m2 === '' || body.surface_plancher_m2 == null) body.surface_plancher_m2 = null;
+  else body.surface_plancher_m2 = parseFloat(body.surface_plancher_m2);
+  if (body.annee_construction === '' || body.annee_construction == null) body.annee_construction = null;
+  else body.annee_construction = parseInt(body.annee_construction);
+
   const { data, error: dbErr } = await supabaseAdmin
     .from('batiments')
-    .insert([req.body])
+    .insert([body])
     .select()
     .single();
   if (dbErr) return error(res, dbErr.message);
