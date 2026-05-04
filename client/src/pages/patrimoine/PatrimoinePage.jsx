@@ -1750,7 +1750,13 @@ function TabEclairage() {
                                           title="Annuler (Échap)">✗</button>
                                       </div>
                                     ) : (
-                                      <EtatBadge etat={p.etat_general} />
+                                      <button
+                                        onClick={() => { setSelectedPLId(p.id); setEditingEtat(p.etat_general); }}
+                                        className="text-left"
+                                        title="Cliquer pour modifier l'état"
+                                      >
+                                        <EtatBadge etat={p.etat_general} />
+                                      </button>
                                     )}
                                   </td>
                                   <td className="py-2.5 px-2">
