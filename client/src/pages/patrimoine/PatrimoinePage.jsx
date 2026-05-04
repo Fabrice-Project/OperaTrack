@@ -809,9 +809,9 @@ function SectionMarches({ refreshKey = 0, domainTab = 'voirie', onDomainChange, 
           items.length === 0 ? (
             <div className="p-6 text-center text-text-muted text-sm">Aucun marché enregistré.</div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 440 }}>
               <table className="w-full text-left">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
                   <tr className="border-b border-border bg-gray-50/70">
                     <th className="py-2 px-4 text-xs font-semibold text-text-muted uppercase tracking-wide">Intitulé</th>
                     <th className="py-2 px-4 text-xs font-semibold text-text-muted uppercase tracking-wide">Prestataire</th>
@@ -1002,9 +1002,9 @@ function SectionInterventionsVoirie({ onSynced, theme = 'voirie' }) {
             {items.length === 0 ? (
               <div className="p-6 text-center text-text-muted text-sm">Aucune intervention enregistrée.</div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 440 }}>
                 <table className="w-full text-left">
-                  <thead>
+                  <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
                     <tr className="border-b border-border bg-gray-50/70">
                       <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Date</th>
                       <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">
@@ -1160,6 +1160,8 @@ function TabVoirie() {
   const [showCreate, setShowCreate] = useState(false);
   const [marcheRefreshKey, setMarcheRefreshKey] = useState(0);
   const [domainTab, setDomainTab] = useState('voirie');
+  const [tronçonsOpen, setTronçonsOpen] = useState(false);
+  const [tronçonsSearch, setTronçonsSearch] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1255,11 +1257,19 @@ function TabVoirie() {
         </div>
       </div>
 
-      {/* Tableau tronçons */}
+      {/* Tableau tronçons — repliable */}
       <div className="card overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h4 className="font-heading font-semibold text-sm text-text-main">Tronçons ({troncons.length})</h4>
-          <div className="flex gap-2">
+        <div
+          className="flex items-center justify-between p-4 border-b border-border cursor-pointer select-none hover:bg-gray-50 transition-colors"
+          onClick={() => setTronçonsOpen(o => !o)}
+        >
+          <div className="flex items-center gap-2">
+            {tronçonsOpen ? <ChevronDown size={15} className="text-text-muted" /> : <ChevronRight size={15} className="text-text-muted" />}
+            <h4 className="font-heading font-semibold text-sm text-text-main">
+              Tronçons <span className="ml-1 font-mono text-xs font-normal text-text-muted">({troncons.length})</span>
+            </h4>
+          </div>
+          <div className="flex gap-2" onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowRapport(true)} className="btn-secondary text-xs flex items-center gap-1.5">
               <FileDown size={13} /> Rapport / Export
             </button>
@@ -1268,44 +1278,65 @@ function TabVoirie() {
             </button>
           </div>
         </div>
-        {troncons.length === 0 ? (
-          <div className="p-8 text-center text-text-muted text-sm">Aucun tronçon enregistré.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-border bg-gray-50">
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Intitulé</th>
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Revêtement</th>
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Longueur</th>
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Surface</th>
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">État</th>
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Dernière réfection</th>
-                  <th className="py-2 px-2 w-16" />
-                </tr>
-              </thead>
-              <tbody>
-                {troncons.map((t, i) => (
-                  <tr key={t.id} className={`border-b border-border hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
-                    <td className="py-2.5 px-3 text-sm font-medium text-text-main">{t.intitule}</td>
-                    <td className="py-2.5 px-3 text-sm text-text-muted">{t.revetement || '—'}</td>
-                    <td className="py-2.5 px-3 text-sm font-mono text-text-muted">{t.longueur_ml ? `${t.longueur_ml} m` : '—'}</td>
-                    <td className="py-2.5 px-3 text-sm font-mono text-text-muted">
-                      {t.longueur_ml && t.largeur_m ? `${Math.round(t.longueur_ml * t.largeur_m)} m²` : '—'}
-                    </td>
-                    <td className="py-2.5 px-3"><EtatBadge etat={t.etat_general} /></td>
-                    <td className="py-2.5 px-3 text-xs font-mono text-text-muted">{t.annee_derniere_refection || '—'}</td>
-                    <td className="py-2.5 px-2">
-                      <button
-                        onClick={() => navigate(`/patrimoine/voirie/${t.id}`)}
-                        className="btn-secondary text-xs px-2 py-1"
-                      >Voir</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {tronçonsOpen && (
+          troncons.length === 0 ? (
+            <div className="p-8 text-center text-text-muted text-sm">Aucun tronçon enregistré.</div>
+          ) : (
+            <>
+              <div className="px-4 py-2.5 border-b border-border bg-gray-50/60 flex items-center gap-2">
+                <Search size={13} className="text-text-muted shrink-0" />
+                <input type="text" value={tronçonsSearch} onChange={e => setTronçonsSearch(e.target.value)}
+                  placeholder="Filtrer par intitulé ou revêtement…"
+                  className="text-sm bg-transparent outline-none flex-1 text-text-main placeholder:text-text-muted" />
+                {tronçonsSearch && <button onClick={() => setTronçonsSearch('')} className="text-text-muted hover:text-text-main"><X size={13} /></button>}
+              </div>
+              <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 480 }}>
+                {(() => {
+                  const q = tronçonsSearch.toLowerCase();
+                  const filtered = q ? troncons.filter(t => t.intitule?.toLowerCase().includes(q) || t.revetement?.toLowerCase().includes(q)) : troncons;
+                  return (
+                    <table className="w-full text-left">
+                      <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
+                        <tr className="border-b border-border">
+                          <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Intitulé</th>
+                          <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Revêtement</th>
+                          <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Longueur</th>
+                          <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Surface</th>
+                          <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">État</th>
+                          <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Dernière réfection</th>
+                          <th className="py-2 px-2 w-16" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.length === 0
+                          ? <tr><td colSpan={7} className="py-6 text-center text-sm text-text-muted">Aucun résultat pour « {tronçonsSearch} »</td></tr>
+                          : filtered.map((t, i) => (
+                            <tr key={t.id} className={`border-b border-border hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
+                              <td className="py-2.5 px-3 text-sm font-medium text-text-main">{t.intitule}</td>
+                              <td className="py-2.5 px-3 text-sm text-text-muted">{t.revetement || '—'}</td>
+                              <td className="py-2.5 px-3 text-sm font-mono text-text-muted">{t.longueur_ml ? `${t.longueur_ml} m` : '—'}</td>
+                              <td className="py-2.5 px-3 text-sm font-mono text-text-muted">
+                                {t.longueur_ml && t.largeur_m ? `${Math.round(t.longueur_ml * t.largeur_m)} m²` : '—'}
+                              </td>
+                              <td className="py-2.5 px-3"><EtatBadge etat={t.etat_general} /></td>
+                              <td className="py-2.5 px-3 text-xs font-mono text-text-muted">{t.annee_derniere_refection || '—'}</td>
+                              <td className="py-2.5 px-2">
+                                <button onClick={() => navigate(`/patrimoine/voirie/${t.id}`)} className="btn-secondary text-xs px-2 py-1">Voir</button>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  );
+                })()}
+              </div>
+              {tronçonsSearch && (
+                <div className="px-4 py-2 text-xs text-text-muted border-t border-border">
+                  {troncons.filter(t => t.intitule?.toLowerCase().includes(tronçonsSearch.toLowerCase()) || t.revetement?.toLowerCase().includes(tronçonsSearch.toLowerCase())).length} résultat(s) sur {troncons.length}
+                </div>
+              )}
+            </>
+          )
         )}
       </div>
 
@@ -1405,6 +1436,9 @@ function TabEclairage() {
   const [showImportEclairage, setShowImportEclairage] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
   const [marcheRefreshKey, setMarcheRefreshKey] = useState(0);
+  // Tableau armoires — repliable
+  const [armoiresOpen, setArmoiresOpen]     = useState(false);
+  const [armoiresSearch, setArmoiresSearch] = useState('');
   // Sélection depuis la carte
   const [selectedPLId, setSelectedPLId] = useState(null);
   const [editingEtat, setEditingEtat]   = useState(null);
@@ -1757,16 +1791,21 @@ function TabEclairage() {
           </div>
 
           <div className="card overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h4 className="font-heading font-semibold text-sm text-text-main">Armoires ({armoires.length})</h4>
-              <div className="flex gap-2">
+            <div
+              className="flex items-center justify-between p-4 border-b border-border cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              onClick={() => setArmoiresOpen(o => !o)}
+            >
+              <div className="flex items-center gap-2">
+                {armoiresOpen ? <ChevronDown size={15} className="text-text-muted" /> : <ChevronRight size={15} className="text-text-muted" />}
+                <h4 className="font-heading font-semibold text-sm text-text-main">
+                  Armoires <span className="ml-1 font-mono text-xs font-normal text-text-muted">({armoires.length})</span>
+                </h4>
+              </div>
+              <div className="flex gap-2" onClick={e => e.stopPropagation()}>
                 {armoires.some(a => !a.localisation && a.latitude) && (
-                  <button
-                    onClick={handleGeocode}
-                    disabled={geocoding}
+                  <button onClick={handleGeocode} disabled={geocoding}
                     className="btn-secondary text-xs flex items-center gap-1.5"
-                    title="Remplir automatiquement les adresses manquantes depuis les coordonnées GPS"
-                  >
+                    title="Remplir automatiquement les adresses manquantes depuis les coordonnées GPS">
                     <MapPin size={13} /> {geocoding ? 'Géocodage…' : `Géocoder (${armoires.filter(a => !a.localisation && a.latitude).length})`}
                   </button>
                 )}
@@ -1778,39 +1817,63 @@ function TabEclairage() {
                 </button>
               </div>
             </div>
-            {armoires.length === 0 ? (
-              <div className="p-8 text-center text-text-muted text-sm">Aucune armoire enregistree.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-border bg-gray-50">
-                      <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Intitule</th>
-                      <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Localisation</th>
-                      <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide text-center">PL</th>
-                      <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide text-center">Defaillants</th>
-                      <th className="py-2 px-2 w-16" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {armoires.map((a, i) => (
-                      <tr key={a.id} className={`border-b border-border hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
-                        <td className="py-2.5 px-3 text-sm font-medium text-text-main">{a.intitule}</td>
-                        <td className="py-2.5 px-3 text-sm text-text-muted">{a.localisation || '—'}</td>
-                        <td className="py-2.5 px-3 text-sm font-mono text-text-muted text-center">{a.nb_points_lumineux}</td>
-                        <td className="py-2.5 px-3 text-center">
-                          {a.nb_defaillants > 0
-                            ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">{a.nb_defaillants}</span>
-                            : <span className="text-text-muted text-sm">—</span>}
-                        </td>
-                        <td className="py-2.5 px-2">
-                          <button onClick={() => navigate(`/patrimoine/eclairage/armoire/${a.id}`)} className="btn-secondary text-xs px-2 py-1">Voir</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {armoiresOpen && (
+              armoires.length === 0 ? (
+                <div className="p-8 text-center text-text-muted text-sm">Aucune armoire enregistrée.</div>
+              ) : (
+                <>
+                  <div className="px-4 py-2.5 border-b border-border bg-gray-50/60 flex items-center gap-2">
+                    <Search size={13} className="text-text-muted shrink-0" />
+                    <input type="text" value={armoiresSearch} onChange={e => setArmoiresSearch(e.target.value)}
+                      placeholder="Filtrer par intitulé ou localisation…"
+                      className="text-sm bg-transparent outline-none flex-1 text-text-main placeholder:text-text-muted" />
+                    {armoiresSearch && <button onClick={() => setArmoiresSearch('')} className="text-text-muted hover:text-text-main"><X size={13} /></button>}
+                  </div>
+                  <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 480 }}>
+                    {(() => {
+                      const q = armoiresSearch.toLowerCase();
+                      const filtered = q ? armoires.filter(a => a.intitule?.toLowerCase().includes(q) || a.localisation?.toLowerCase().includes(q)) : armoires;
+                      return (
+                        <table className="w-full text-left">
+                          <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
+                            <tr className="border-b border-border">
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Intitulé</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Localisation</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide text-center">PL</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide text-center">Défaillants</th>
+                              <th className="py-2 px-2 w-16" />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filtered.length === 0
+                              ? <tr><td colSpan={5} className="py-6 text-center text-sm text-text-muted">Aucun résultat pour « {armoiresSearch} »</td></tr>
+                              : filtered.map((a, i) => (
+                                <tr key={a.id} className={`border-b border-border hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
+                                  <td className="py-2.5 px-3 text-sm font-medium text-text-main">{a.intitule}</td>
+                                  <td className="py-2.5 px-3 text-sm text-text-muted">{a.localisation || '—'}</td>
+                                  <td className="py-2.5 px-3 text-sm font-mono text-text-muted text-center">{a.nb_points_lumineux}</td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    {a.nb_defaillants > 0
+                                      ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">{a.nb_defaillants}</span>
+                                      : <span className="text-text-muted text-sm">—</span>}
+                                  </td>
+                                  <td className="py-2.5 px-2">
+                                    <button onClick={() => navigate(`/patrimoine/eclairage/armoire/${a.id}`)} className="btn-secondary text-xs px-2 py-1">Voir</button>
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
+                  </div>
+                  {armoiresSearch && (
+                    <div className="px-4 py-2 text-xs text-text-muted border-t border-border">
+                      {armoires.filter(a => a.intitule?.toLowerCase().includes(armoiresSearch.toLowerCase()) || a.localisation?.toLowerCase().includes(armoiresSearch.toLowerCase())).length} résultat(s) sur {armoires.length}
+                    </div>
+                  )}
+                </>
+              )
             )}
           </div>
         </>
@@ -1856,6 +1919,8 @@ function TabBatiments() {
   const [showCreate, setShowCreate] = useState(false);
   const [marcheRefreshKey, setMarcheRefreshKey] = useState(0);
   const [showRapport, setShowRapport] = useState(false);
+  const [batimentsOpen, setBatimentsOpen]     = useState(false);
+  const [batimentsSearch, setBatimentsSearch] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1929,9 +1994,17 @@ function TabBatiments() {
       </div>
 
       <div className="card overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h4 className="font-heading font-semibold text-sm text-text-main">Bâtiments ({batiments.length})</h4>
-          <div className="flex gap-2">
+        <div
+          className="flex items-center justify-between p-4 border-b border-border cursor-pointer select-none hover:bg-gray-50 transition-colors"
+          onClick={() => setBatimentsOpen(o => !o)}
+        >
+          <div className="flex items-center gap-2">
+            {batimentsOpen ? <ChevronDown size={15} className="text-text-muted" /> : <ChevronRight size={15} className="text-text-muted" />}
+            <h4 className="font-heading font-semibold text-sm text-text-main">
+              Bâtiments <span className="ml-1 font-mono text-xs font-normal text-text-muted">({batiments.length})</span>
+            </h4>
+          </div>
+          <div className="flex gap-2" onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowRapport(true)} className="btn-secondary text-xs flex items-center gap-1.5">
               <FileDown size={13} /> Rapport / Export
             </button>
@@ -1940,44 +2013,68 @@ function TabBatiments() {
             </button>
           </div>
         </div>
-        {batiments.length === 0 ? (
-          <div className="p-8 text-center text-text-muted text-sm">Aucun bâtiment enregistré.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-border bg-gray-50">
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Nom</th>
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Adresse</th>
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Surface</th>
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">DPE</th>
-                  <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Année</th>
-                  <th className="py-2 px-2 w-16" />
-                </tr>
-              </thead>
-              <tbody>
-                {batiments.map((b, i) => (
-                  <tr key={b.id} className={`border-b border-border hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
-                    <td className="py-2.5 px-3 text-sm font-medium text-text-main">{b.intitule}</td>
-                    <td className="py-2.5 px-3 text-sm text-text-muted">{b.adresse || '—'}</td>
-                    <td className="py-2.5 px-3 text-sm font-mono text-text-muted">{b.surface_plancher_m2 ? `${b.surface_plancher_m2} m²` : '—'}</td>
-                    <td className="py-2.5 px-3">
-                      {b.dpe_classe ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold"
-                          style={{ backgroundColor: DPE_COLORS[b.dpe_classe] + '22', color: DPE_COLORS[b.dpe_classe] }}>
-                          {b.dpe_classe}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td className="py-2.5 px-3 text-sm font-mono text-text-muted">{b.annee_construction || '—'}</td>
-                    <td className="py-2.5 px-2">
-                      <button onClick={() => navigate(`/patrimoine/batiments/${b.id}`)} className="btn-secondary text-xs px-2 py-1">Voir</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {batimentsOpen && (
+          batiments.length === 0 ? (
+            <div className="p-8 text-center text-text-muted text-sm">Aucun bâtiment enregistré.</div>
+          ) : (
+            <>
+              <div className="px-4 py-2.5 border-b border-border bg-gray-50/60 flex items-center gap-2">
+                <Search size={13} className="text-text-muted shrink-0" />
+                <input type="text" value={batimentsSearch} onChange={e => setBatimentsSearch(e.target.value)}
+                  placeholder="Filtrer par nom ou adresse…"
+                  className="text-sm bg-transparent outline-none flex-1 text-text-main placeholder:text-text-muted" />
+                {batimentsSearch && <button onClick={() => setBatimentsSearch('')} className="text-text-muted hover:text-text-main"><X size={13} /></button>}
+              </div>
+              <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 480 }}>
+                {(() => {
+                  const q = batimentsSearch.toLowerCase();
+                  const filtered = q ? batiments.filter(b => b.intitule?.toLowerCase().includes(q) || b.adresse?.toLowerCase().includes(q)) : batiments;
+                  return (
+                    <table className="w-full text-left">
+                      <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
+                        <tr className="border-b border-border">
+                          <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Nom</th>
+                          <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Adresse</th>
+                          <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Surface</th>
+                          <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">DPE</th>
+                          <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Année</th>
+                          <th className="py-2 px-2 w-16" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.length === 0
+                          ? <tr><td colSpan={6} className="py-6 text-center text-sm text-text-muted">Aucun résultat pour « {batimentsSearch} »</td></tr>
+                          : filtered.map((b, i) => (
+                            <tr key={b.id} className={`border-b border-border hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
+                              <td className="py-2.5 px-3 text-sm font-medium text-text-main">{b.intitule}</td>
+                              <td className="py-2.5 px-3 text-sm text-text-muted">{b.adresse || '—'}</td>
+                              <td className="py-2.5 px-3 text-sm font-mono text-text-muted">{b.surface_plancher_m2 ? `${b.surface_plancher_m2} m²` : '—'}</td>
+                              <td className="py-2.5 px-3">
+                                {b.dpe_classe ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold"
+                                    style={{ backgroundColor: DPE_COLORS[b.dpe_classe] + '22', color: DPE_COLORS[b.dpe_classe] }}>
+                                    {b.dpe_classe}
+                                  </span>
+                                ) : '—'}
+                              </td>
+                              <td className="py-2.5 px-3 text-sm font-mono text-text-muted">{b.annee_construction || '—'}</td>
+                              <td className="py-2.5 px-2">
+                                <button onClick={() => navigate(`/patrimoine/batiments/${b.id}`)} className="btn-secondary text-xs px-2 py-1">Voir</button>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  );
+                })()}
+              </div>
+              {batimentsSearch && (
+                <div className="px-4 py-2 text-xs text-text-muted border-t border-border">
+                  {batiments.filter(b => b.intitule?.toLowerCase().includes(batimentsSearch.toLowerCase()) || b.adresse?.toLowerCase().includes(batimentsSearch.toLowerCase())).length} résultat(s) sur {batiments.length}
+                </div>
+              )}
+            </>
+          )
         )}
       </div>
 
