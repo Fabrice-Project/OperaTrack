@@ -597,13 +597,41 @@ const deleteMarche = async (req, res) => {
 
 const upsertEngagement = async (req, res) => {
   const { marcheId } = req.params;
-  const { exercice, montant_engage_ht, montant_mandate_ht } = req.body;
+  const { exercice, montant_engage_ht, montant_mandate_ht, create_only } = req.body;
+
+  if (create_only) {
+    // Mode "création uniquement" : ne pas écraser le montant autorisé si l'engagement existe déjà
+    const { data: existing } = await supabaseAdmin
+      .from('engagements_marche')
+      .select('*')
+      .eq('marche_id', marcheId)
+      .eq('exercice', exercice)
+      .single();
+
+    if (existing) return success(res, existing); // Déjà renseigné manuellement — on ne touche pas
+
+    const { data, error: dbErr } = await supabaseAdmin
+      .from('engagements_marche')
+      .insert([{
+        marche_id: marcheId,
+        exercice,
+        montant_engage_ht: parseFloat(montant_engage_ht) || 0,
+        montant_mandate_ht: 0,
+      }])
+      .select()
+      .single();
+    if (dbErr) return error(res, dbErr.message);
+    return success(res, data, 201);
+  }
+
+  // Mode édition complète (EngagementModal) : upsert uniquement les champs fournis
+  const record = { marche_id: marcheId, exercice };
+  if (montant_engage_ht !== undefined) record.montant_engage_ht = parseFloat(montant_engage_ht) || 0;
+  if (montant_mandate_ht !== undefined) record.montant_mandate_ht = parseFloat(montant_mandate_ht) || 0;
+
   const { data, error: dbErr } = await supabaseAdmin
     .from('engagements_marche')
-    .upsert(
-      [{ marche_id: marcheId, exercice, montant_engage_ht: montant_engage_ht || 0, montant_mandate_ht: montant_mandate_ht || 0 }],
-      { onConflict: 'marche_id,exercice' }
-    )
+    .upsert([record], { onConflict: 'marche_id,exercice' })
     .select()
     .single();
   if (dbErr) return error(res, dbErr.message);

@@ -692,10 +692,11 @@ function SectionMarches({ refreshKey = 0, domainTab = 'voirie', onDomainChange, 
           api.post(`/patrimoine/voirie/marches/${m.id}/engagements`, {
             exercice,
             montant_engage_ht: Math.round(total_ht * 100) / 100,
+            create_only: true, // Ne pas écraser un montant autorisé déjà renseigné manuellement
           })
         )
       );
-      toast.success(`Autorisé par an mis à jour — ${m.intitule}`);
+      toast.success(`Exercices synchronisés — ${m.intitule}`);
       load();
     } catch (err) { toast.error(err.message); }
     finally { setSyncing(s => ({ ...s, [m.id]: false })); }
@@ -763,7 +764,7 @@ function SectionMarches({ refreshKey = 0, domainTab = 'voirie', onDomainChange, 
                 onClick={() => handleSyncMarche(m)}
                 disabled={!!syncing[m.id]}
                 className="btn-secondary text-xs px-2 py-1 flex items-center gap-1"
-                title="Mettre à jour 'Autorisé par an' avec le cumulé des interventions par exercice"
+                title="Créer les exercices manquants à partir des interventions (ne modifie pas un montant autorisé déjà renseigné)"
               >
                 <RefreshCw size={11} className={syncing[m.id] ? 'animate-spin' : ''} />
                 {syncing[m.id] ? 'Sync...' : 'Sync'}
@@ -958,6 +959,7 @@ function SectionInterventionsVoirie({ onSynced, theme = 'voirie' }) {
       await api.post(`/patrimoine/voirie/marches/${marcheId}/engagements`, {
         exercice,
         montant_engage_ht: Math.round(totalHt * 100) / 100,
+        create_only: true, // Ne pas écraser un montant autorisé déjà renseigné manuellement
       });
       toast.success(`Engagement ${exercice} mis à jour — ${fmtEur(totalHt)}`);
       load();
