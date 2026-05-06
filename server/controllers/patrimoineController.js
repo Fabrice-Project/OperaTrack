@@ -1081,6 +1081,141 @@ const deleteControleBatiment = async (req, res) => {
   success(res, { deleted: true });
 };
 
+// ── Documents Bâtiment ────────────────────────────────────────────────────────
+
+const BUCKET_BAT = 'Documents';
+
+function slugifyDoc(str) {
+  return str.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9.]/gi, '_').toLowerCase();
+}
+
+const getDocsBatiment = async (req, res) => {
+  const { id: batimentId } = req.params;
+  const { repertoire_id } = req.query;
+
+  let foldersQ = supabaseAdmin.from('repertoires_batiment')
+    .select('*').eq('batiment_id', batimentId).order('nom');
+  let docsQ = supabaseAdmin.from('documents_batiment')
+    .select('*').eq('batiment_id', batimentId).order('created_at', { ascending: false });
+
+  if (repertoire_id) {
+    foldersQ = foldersQ.eq('parent_id', repertoire_id);
+    docsQ    = docsQ.eq('repertoire_id', repertoire_id);
+  } else {
+    foldersQ = foldersQ.is('parent_id', null);
+    docsQ    = docsQ.is('repertoire_id', null);
+  }
+
+  const [{ data: folders, error: e1 }, { data: docs, error: e2 }] = await Promise.all([foldersQ, docsQ]);
+  if (e1) return error(res, e1.message);
+  if (e2) return error(res, e2.message);
+
+  // Breadcrumb
+  let breadcrumb = [];
+  if (repertoire_id) {
+    const { data: allReps } = await supabaseAdmin
+      .from('repertoires_batiment').select('id, nom, parent_id').eq('batiment_id', batimentId);
+    const folderMap = {};
+    (allReps || []).forEach(f => { folderMap[f.id] = f; });
+    let cur = repertoire_id;
+    while (cur) {
+      const f = folderMap[cur];
+      if (!f) break;
+      breadcrumb.unshift({ id: f.id, nom: f.nom });
+      cur = f.parent_id;
+    }
+  }
+
+  success(res, { folders: folders || [], documents: docs || [], breadcrumb });
+};
+
+const createRepertoireBatiment = async (req, res) => {
+  const { id: batimentId } = req.params;
+  const { nom, parent_id } = req.body;
+  if (!nom?.trim()) return error(res, 'Nom requis', 400);
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('repertoires_batiment')
+    .insert([{ batiment_id: batimentId, nom: nom.trim(), parent_id: parent_id || null }])
+    .select().single();
+  if (dbErr) return error(res, dbErr.message);
+  success(res, data, 201);
+};
+
+const deleteRepertoireBatiment = async (req, res) => {
+  const { repId } = req.params;
+  // Récupère tous les dossiers descendants pour nettoyer le storage
+  const { data: allReps } = await supabaseAdmin.from('repertoires_batiment').select('id, parent_id');
+  const descendantIds = [repId];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    (allReps || []).forEach(r => {
+      if (r.parent_id && descendantIds.includes(r.parent_id) && !descendantIds.includes(r.id)) {
+        descendantIds.push(r.id);
+        changed = true;
+      }
+    });
+  }
+  const { data: docs } = await supabaseAdmin.from('documents_batiment')
+    .select('storage_path').in('repertoire_id', descendantIds);
+  if (docs?.length) {
+    await supabaseAdmin.storage.from(BUCKET_BAT).remove(docs.map(d => d.storage_path));
+    await supabaseAdmin.from('documents_batiment').delete().in('repertoire_id', descendantIds);
+  }
+  const { error: dbErr } = await supabaseAdmin.from('repertoires_batiment').delete().eq('id', repId);
+  if (dbErr) return error(res, dbErr.message);
+  success(res, { deleted: true });
+};
+
+const uploadDocBatiment = async (req, res) => {
+  if (!req.file) return error(res, 'Fichier manquant', 400);
+  const { id: batimentId } = req.params;
+  const { nom_affichage, repertoire_id, description } = req.body;
+  const ts = Date.now();
+  const safeName = slugifyDoc(req.file.originalname);
+  const storagePath = `batiment/${batimentId}/${ts}_${safeName}`;
+  const { error: uploadErr } = await supabaseAdmin.storage.from(BUCKET_BAT)
+    .upload(storagePath, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+  if (uploadErr) return error(res, uploadErr.message);
+  const { data, error: dbErr } = await supabaseAdmin.from('documents_batiment').insert([{
+    batiment_id:   batimentId,
+    repertoire_id: repertoire_id || null,
+    nom_fichier:   req.file.originalname,
+    nom_affichage: nom_affichage || req.file.originalname,
+    description:   description || null,
+    taille_octets: req.file.size,
+    type_mime:     req.file.mimetype,
+    storage_path:  storagePath,
+    uploaded_by:   req.user?.id || null,
+  }]).select().single();
+  if (dbErr) {
+    await supabaseAdmin.storage.from(BUCKET_BAT).remove([storagePath]);
+    return error(res, dbErr.message);
+  }
+  success(res, data, 201);
+};
+
+const downloadDocBatiment = async (req, res) => {
+  const { docId } = req.params;
+  const { data: doc } = await supabaseAdmin.from('documents_batiment').select('*').eq('id', docId).single();
+  if (!doc) return error(res, 'Document introuvable', 404);
+  const { data: fileData, error: dlErr } = await supabaseAdmin.storage.from(BUCKET_BAT).download(doc.storage_path);
+  if (dlErr) return error(res, dlErr.message);
+  const buffer = Buffer.from(await fileData.arrayBuffer());
+  res.setHeader('Content-Type', doc.type_mime || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.nom_affichage)}"`);
+  res.send(buffer);
+};
+
+const deleteDocBatiment = async (req, res) => {
+  const { docId } = req.params;
+  const { data: doc } = await supabaseAdmin.from('documents_batiment').select('*').eq('id', docId).single();
+  if (!doc) return error(res, 'Document introuvable', 404);
+  await supabaseAdmin.storage.from(BUCKET_BAT).remove([doc.storage_path]);
+  await supabaseAdmin.from('documents_batiment').delete().eq('id', docId);
+  success(res, { deleted: true });
+};
+
 module.exports = {
   getVoirie, createTroncon, getTroncon, updateTroncon, deleteTroncon,
   getMarches, createMarche, getMarche, updateMarche, deleteMarche,
@@ -1095,4 +1230,6 @@ module.exports = {
   getInterventions, createIntervention, getIntervention, updateIntervention, deleteIntervention,
   getControlesBatiment, createControleBatiment, updateControleBatiment, deleteControleBatiment,
   getDashboard,
+  getDocsBatiment, createRepertoireBatiment, deleteRepertoireBatiment,
+  uploadDocBatiment, downloadDocBatiment, deleteDocBatiment,
 };

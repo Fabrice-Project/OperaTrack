@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Plus, Edit2, Trash2, AlertTriangle, Clock, FileText, X, MapPin, Zap } from 'lucide-react';
+import { Plus, Edit2, Trash2, AlertTriangle, Clock, FileText, X, MapPin, Zap,
+         Folder, FolderPlus, Upload, Download, Home, ChevronRight, File } from 'lucide-react';
 import { TabConsommationsBatiment } from '../energie/TabConsommationsBatiment';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -784,45 +785,293 @@ function TabControles({ batimentId }) {
 // ── Onglet Documents ──────────────────────────────────────────────────────────
 function TabDocuments({ batimentId }) {
   const toast = useToast();
-  const [interventions, setInterventions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const isReadOnly = user?.role === 'read';
 
-  useEffect(() => {
-    api.get(`/patrimoine/interventions?theme=batiment&element_id=${batimentId}`)
-      .then(d => setInterventions((d || []).filter(iv => iv.document_url)))
-      .catch(err => toast.error(err.message))
-      .finally(() => setLoading(false));
-  }, [batimentId]);
+  const [data, setData]           = useState({ folders: [], documents: [], breadcrumb: [] });
+  const [currentFolder, setCurrentFolder] = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [dragging, setDragging]   = useState(false);
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const fileInputRef = useRef(null);
 
-  if (loading) return <Skeleton className="h-32 rounded-xl" />;
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = currentFolder ? `?repertoire_id=${currentFolder}` : '';
+      const d = await api.get(`/patrimoine/batiments/${batimentId}/docs${params}`);
+      setData(d);
+    } catch (err) { toast.error(err.message); }
+    finally { setLoading(false); }
+  }, [batimentId, currentFolder]);
 
-  if (interventions.length === 0) {
-    return (
-      <div className="card p-8 text-center text-text-muted text-sm">
-        Aucun document associé aux interventions de ce bâtiment.
-      </div>
-    );
-  }
+  useEffect(() => { load(); }, [load]);
+
+  const handleUpload = async (files) => {
+    if (!files?.length || uploading) return;
+    setUploading(true);
+    let ok = 0, errors = 0;
+    for (const file of files) {
+      try {
+        const token = localStorage.getItem('opera_token');
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('nom_affichage', file.name);
+        if (currentFolder) formData.append('repertoire_id', currentFolder);
+        const res = await fetch(`/api/v1/patrimoine/batiments/${batimentId}/docs`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        const json = await res.json();
+        if (json.success) ok++; else errors++;
+      } catch { errors++; }
+    }
+    setUploading(false);
+    if (errors === 0) toast.success(`${ok} fichier${ok > 1 ? 's' : ''} déposé${ok > 1 ? 's' : ''}`);
+    else toast.error(`${errors} erreur${errors > 1 ? 's' : ''} lors du dépôt`);
+    load();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    if (!isReadOnly) handleUpload([...e.dataTransfer.files]);
+  };
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+    setCreatingFolder(true);
+    try {
+      await api.post(`/patrimoine/batiments/${batimentId}/repertoires`, {
+        nom: newFolderName.trim(),
+        parent_id: currentFolder,
+      });
+      toast.success('Dossier créé');
+      setShowNewFolder(false);
+      setNewFolderName('');
+      load();
+    } catch (err) { toast.error(err.message); }
+    finally { setCreatingFolder(false); }
+  };
+
+  const handleDeleteFolder = async (repId, e) => {
+    e.stopPropagation();
+    if (!window.confirm('Supprimer ce dossier et tous les fichiers qu\'il contient ?')) return;
+    try {
+      await api.delete(`/patrimoine/batiments/${batimentId}/repertoires/${repId}`);
+      toast.success('Dossier supprimé');
+      load();
+    } catch (err) { toast.error(err.message); }
+  };
+
+  const handleDeleteDoc = async (docId) => {
+    if (!window.confirm('Supprimer ce document définitivement ?')) return;
+    try {
+      await api.delete(`/patrimoine/batiments/${batimentId}/docs/${docId}`);
+      toast.success('Document supprimé');
+      load();
+    } catch (err) { toast.error(err.message); }
+  };
+
+  const handleDownload = async (docId, nom) => {
+    try {
+      const token = localStorage.getItem('opera_token');
+      const res = await fetch(`/api/v1/patrimoine/batiments/${batimentId}/docs/${docId}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Erreur téléchargement');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = nom; a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) { toast.error(err.message); }
+  };
+
+  const fmtSize = (bytes) => {
+    if (!bytes) return '—';
+    if (bytes < 1024) return `${bytes} o`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} ko`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+  };
+
+  const fmtDate = (d) => {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const FileIcon = ({ mime }) => {
+    if (!mime) return <File size={16} className="text-text-muted" />;
+    if (mime.startsWith('image/')) return <File size={16} style={{ color: '#059669' }} />;
+    if (mime === 'application/pdf') return <FileText size={16} style={{ color: '#DC2626' }} />;
+    if (mime.includes('word') || mime.includes('document')) return <FileText size={16} style={{ color: '#2563EB' }} />;
+    if (mime.includes('sheet') || mime.includes('excel')) return <FileText size={16} style={{ color: '#16A34A' }} />;
+    if (mime.includes('presentation') || mime.includes('powerpoint')) return <FileText size={16} style={{ color: '#EA580C' }} />;
+    return <File size={16} className="text-text-muted" />;
+  };
+
+  const isEmpty = data.folders.length === 0 && data.documents.length === 0;
 
   return (
-    <div className="card overflow-hidden">
-      <div className="divide-y divide-border">
-        {interventions.map(iv => (
-          <div key={iv.id} className="p-4 flex items-center gap-3 hover:bg-gray-50">
-            <FileText size={16} className="text-text-muted shrink-0" />
-            <div className="flex-1">
-              <div className="text-sm font-medium text-text-main">{iv.nature || `Intervention du ${fmtDate(iv.date_signalement)}`}</div>
-              <div className="text-xs text-text-muted">{iv.categorie} — {fmtDate(iv.date_signalement)}</div>
-            </div>
-            {iv.document_url && (
-              <a href={iv.document_url} target="_blank" rel="noopener noreferrer"
-                className="btn-secondary text-xs px-2 py-1">
-                Ouvrir
-              </a>
-            )}
+    <div className="flex flex-col gap-3">
+
+      {/* Barre d'outils */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        {/* Fil d'Ariane */}
+        <nav className="flex items-center gap-1 text-sm text-text-muted min-w-0 flex-1">
+          <button
+            onClick={() => setCurrentFolder(null)}
+            className={`flex items-center gap-1 hover:text-primary transition-colors ${!currentFolder ? 'text-primary font-medium' : ''}`}
+          >
+            <Home size={13} /> Racine
+          </button>
+          {data.breadcrumb.map((crumb, i) => (
+            <span key={crumb.id} className="flex items-center gap-1 min-w-0">
+              <ChevronRight size={12} className="shrink-0" />
+              <button
+                onClick={() => setCurrentFolder(crumb.id)}
+                className={`truncate hover:text-primary transition-colors ${i === data.breadcrumb.length - 1 ? 'text-text-main font-medium' : ''}`}
+              >
+                {crumb.nom}
+              </button>
+            </span>
+          ))}
+        </nav>
+
+        {/* Actions */}
+        {!isReadOnly && (
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => { setShowNewFolder(true); setNewFolderName(''); }}
+              className="btn-secondary text-xs flex items-center gap-1.5"
+            >
+              <FolderPlus size={13} /> Nouveau dossier
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="btn-primary text-xs flex items-center gap-1.5"
+            >
+              <Upload size={13} />
+              {uploading ? 'Dépôt en cours…' : 'Déposer des fichiers'}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={e => { handleUpload([...e.target.files]); e.target.value = ''; }}
+            />
           </div>
-        ))}
+        )}
       </div>
+
+      {/* Zone de dépôt */}
+      <div
+        className={`card rounded-xl border-2 border-dashed transition-colors ${
+          dragging ? 'border-primary bg-blue-50' : 'border-border'
+        } ${isReadOnly ? '' : 'cursor-pointer'}`}
+        onDragOver={e => { e.preventDefault(); if (!isReadOnly) setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        onClick={() => { if (!isReadOnly && isEmpty && !uploading) fileInputRef.current?.click(); }}
+      >
+        {loading ? (
+          <div className="p-6 text-center text-text-muted text-sm">Chargement…</div>
+        ) : isEmpty ? (
+          <div className="p-10 text-center">
+            <Upload size={28} className="mx-auto mb-2 text-text-muted opacity-40" />
+            <p className="text-sm text-text-muted">
+              {isReadOnly ? 'Aucun document dans ce dossier.' : 'Glissez-déposez vos fichiers ici, ou cliquez sur « Déposer des fichiers »'}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {/* Dossiers */}
+            {data.folders.map(folder => (
+              <div
+                key={folder.id}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer group"
+                onClick={() => setCurrentFolder(folder.id)}
+              >
+                <Folder size={18} style={{ color: '#E8920A' }} className="shrink-0" />
+                <span className="flex-1 text-sm font-medium text-text-main">{folder.nom}</span>
+                <span className="text-xs text-text-muted">{fmtDate(folder.created_at)}</span>
+                {!isReadOnly && (
+                  <button
+                    onClick={(e) => handleDeleteFolder(folder.id, e)}
+                    className="p-1.5 rounded hover:bg-red-50 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Supprimer le dossier"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            ))}
+            {/* Fichiers */}
+            {data.documents.map(doc => (
+              <div key={doc.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 group">
+                <FileIcon mime={doc.type_mime} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-text-main truncate">{doc.nom_affichage}</div>
+                  {doc.description && <div className="text-xs text-text-muted truncate">{doc.description}</div>}
+                </div>
+                <span className="text-xs text-text-muted shrink-0">{fmtSize(doc.taille_octets)}</span>
+                <span className="text-xs text-text-muted shrink-0 hidden sm:block">{fmtDate(doc.created_at)}</span>
+                <button
+                  onClick={() => handleDownload(doc.id, doc.nom_affichage)}
+                  className="p-1.5 rounded hover:bg-blue-50 text-blue-400 shrink-0"
+                  title="Télécharger"
+                >
+                  <Download size={13} />
+                </button>
+                {!isReadOnly && (
+                  <button
+                    onClick={() => handleDeleteDoc(doc.id)}
+                    className="p-1.5 rounded hover:bg-red-50 text-red-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Supprimer"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modale nouveau dossier */}
+      {showNewFolder && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
+            <h3 className="font-heading font-semibold text-text-main mb-3">Nouveau dossier</h3>
+            <input
+              type="text"
+              className="input w-full mb-4"
+              placeholder="Nom du dossier"
+              value={newFolderName}
+              onChange={e => setNewFolderName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleCreateFolder(); if (e.key === 'Escape') setShowNewFolder(false); }}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowNewFolder(false)} className="btn-secondary">Annuler</button>
+              <button
+                onClick={handleCreateFolder}
+                disabled={!newFolderName.trim() || creatingFolder}
+                className="btn-primary flex items-center gap-1.5"
+              >
+                <FolderPlus size={13} />
+                {creatingFolder ? 'Création…' : 'Créer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

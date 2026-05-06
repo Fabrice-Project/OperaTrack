@@ -1,4 +1,6 @@
 const express = require('express');
+const multer = require('multer');
+const uploadMem = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 const { authenticate, requireRole,
         requirePatrimoineReferentielWrite,
         requirePatrimoineCoutsWrite } = require('../middleware/auth');
@@ -101,5 +103,13 @@ router.put('/batiments/:id/decret-tertiaire', requirePatrimoineReferentielWrite,
 
 // ── Énergie — Exports ─────────────────────────────────────────────────────────
 router.get('/exports/operat', ectrl.exportOperat);
+
+// ── Documents Bâtiment ────────────────────────────────────────────────────────
+router.get('/batiments/:id/docs', ctrl.getDocsBatiment);
+router.post('/batiments/:id/docs', requirePatrimoineReferentielWrite, uploadMem.single('file'), ctrl.uploadDocBatiment);
+router.get('/batiments/:id/docs/:docId/download', ctrl.downloadDocBatiment);
+router.delete('/batiments/:id/docs/:docId', requirePatrimoineReferentielWrite, ctrl.deleteDocBatiment);
+router.post('/batiments/:id/repertoires', requirePatrimoineReferentielWrite, ctrl.createRepertoireBatiment);
+router.delete('/batiments/:id/repertoires/:repId', requirePatrimoineReferentielWrite, ctrl.deleteRepertoireBatiment);
 
 module.exports = router;
