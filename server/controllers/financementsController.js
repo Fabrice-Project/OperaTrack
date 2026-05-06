@@ -6,7 +6,11 @@ const FINANCEUR_LABELS = {
   region:      'Région',
   departement: 'Département',
   caph:        'CAPH',
-  autre:       'Autre'
+  agglo:       'Agglomération',
+  commune:     'Commune',
+  anru:        'ANRU',
+  dpv:         'DPV',
+  autre:       'Autre',
 };
 
 const getFinancements = async (req, res) => {

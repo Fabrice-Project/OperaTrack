@@ -8,11 +8,15 @@ import { api } from '../../../utils/api';
 import { formatEur, formatDate } from '../../../utils/formatters';
 
 const FINANCEURS = [
-  { value: 'etat',        label: 'État',         color: '#1E7E45', bg: '#E8F5EE' },
-  { value: 'region',      label: 'Région',       color: '#C0392B', bg: '#FEE8E7' },
-  { value: 'departement', label: 'Département',  color: '#7B3FA0', bg: '#F3E8FA' },
-  { value: 'caph',        label: 'CAPH',         color: '#E8920A', bg: '#FEF3E2' },
-  { value: 'autre',       label: 'Autre',        color: '#6B7A8D', bg: '#F0F2F5' },
+  { value: 'etat',        label: 'État',           color: '#1E7E45', bg: '#E8F5EE' },
+  { value: 'region',      label: 'Région',         color: '#C0392B', bg: '#FEE8E7' },
+  { value: 'departement', label: 'Département',    color: '#7B3FA0', bg: '#F3E8FA' },
+  { value: 'caph',        label: 'CAPH',           color: '#E8920A', bg: '#FEF3E2' },
+  { value: 'agglo',       label: 'Agglomération',  color: '#D97706', bg: '#FEF9EE' },
+  { value: 'commune',     label: 'Commune',        color: '#0284C7', bg: '#E0F2FE' },
+  { value: 'anru',        label: 'ANRU',           color: '#4338CA', bg: '#EEF2FF' },
+  { value: 'dpv',         label: 'DPV',            color: '#0891B2', bg: '#ECFEFF' },
+  { value: 'autre',       label: 'Autre',          color: '#6B7A8D', bg: '#F0F2F5' },
 ];
 
 const FINANCEUR_MAP = Object.fromEntries(FINANCEURS.map(f => [f.value, f]));
@@ -198,7 +202,7 @@ function FinKpi({ label, value, sub, color, alert }) {
 function FinancementModal({ operationId, existing, onClose, onSaved }) {
   const toast = useToast();
   const [form, setForm] = useState({
-    financeur: existing?.financeur || 'anru',
+    financeur: existing?.financeur || 'etat',
     libelle: existing?.libelle || '',
     montant_attribue: existing?.montant_attribue || '',
     montant_verse: existing?.montant_verse || '0',
