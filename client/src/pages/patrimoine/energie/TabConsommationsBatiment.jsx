@@ -620,6 +620,7 @@ export function TabConsommationsBatiment({ batimentId }) {
   const [showAddCompteur, setShowAddCompteur] = useState(false);
   const [addForm, setAddForm]       = useState({ fluide: 'electricite', reference_compteur: '', fournisseur: '', unite: 'kWh' });
   const [addSaving, setAddSaving]   = useState(false);
+  const [editCompteur, setEditCompteur] = useState(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -648,6 +649,33 @@ export function TabConsommationsBatiment({ batimentId }) {
       loadAll();
     } catch (err) { toast.error(err.message); }
     finally { setAddSaving(false); }
+  };
+
+  const handleEditCompteur = async (e) => {
+    e.preventDefault();
+    setAddSaving(true);
+    try {
+      await api.put(`/patrimoine/compteurs/${editCompteur.id}`, {
+        fluide:              editCompteur.fluide,
+        reference_compteur: editCompteur.reference_compteur,
+        fournisseur:        editCompteur.fournisseur,
+        unite:              editCompteur.unite,
+      });
+      toast.success('Compteur mis à jour');
+      setEditCompteur(null);
+      loadAll();
+    } catch (err) { toast.error(err.message); }
+    finally { setAddSaving(false); }
+  };
+
+  const handleDeleteCompteur = async (cpt) => {
+    if (!window.confirm(`Supprimer le compteur « ${cpt.reference_compteur || cpt.fluide} » et tous ses relevés ?`)) return;
+    try {
+      await api.delete(`/patrimoine/compteurs/${cpt.id}`);
+      toast.success('Compteur supprimé');
+      setFluideActif(compteurs.find(c => c.id !== cpt.id)?.fluide || null);
+      loadAll();
+    } catch (err) { toast.error(err.message); }
   };
 
   // Grouper par fluide (un compteur par fluide, premier actif)
@@ -741,6 +769,60 @@ export function TabConsommationsBatiment({ batimentId }) {
         </div>
       )}
 
+      {/* Modale édition compteur */}
+      {editCompteur && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="font-heading font-semibold text-text-main">Modifier le compteur</h3>
+              <button onClick={() => setEditCompteur(null)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400"><X size={16}/></button>
+            </div>
+            <form onSubmit={handleEditCompteur} className="p-4 flex flex-col gap-3">
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">Fluide *</label>
+                <select value={editCompteur.fluide} onChange={e => {
+                    const f = FLUIDES.find(fl => fl.id === e.target.value);
+                    setEditCompteur(c => ({ ...c, fluide: e.target.value, unite: f?.unite_def || c.unite }));
+                  }} className="input w-full" required>
+                  {FLUIDES.map(f => <option key={f.id} value={f.id}>{f.icon} {f.label}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1">Référence compteur</label>
+                  <input type="text" value={editCompteur.reference_compteur || ''}
+                    onChange={e => setEditCompteur(c => ({ ...c, reference_compteur: e.target.value }))}
+                    className="input w-full" placeholder="PDL-59220-XXX" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1">Unité *</label>
+                  <select value={editCompteur.unite}
+                    onChange={e => setEditCompteur(c => ({ ...c, unite: e.target.value }))}
+                    className="input w-full" required>
+                    <option value="kWh">kWh</option>
+                    <option value="m3">m³</option>
+                    <option value="litres">litres</option>
+                    <option value="MWh">MWh</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">Fournisseur</label>
+                <input type="text" value={editCompteur.fournisseur || ''}
+                  onChange={e => setEditCompteur(c => ({ ...c, fournisseur: e.target.value }))}
+                  className="input w-full" placeholder="EDF, ENGIE…" />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button type="button" onClick={() => setEditCompteur(null)} className="btn-secondary text-sm">Annuler</button>
+                <button type="submit" disabled={addSaving} className="btn-primary text-sm flex items-center gap-1.5">
+                  <Save size={13}/>{addSaving ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Aucun compteur */}
       {compteurs.length === 0 ? (
         <div className="text-center py-12 text-text-muted">
@@ -751,18 +833,38 @@ export function TabConsommationsBatiment({ batimentId }) {
       ) : (
         <>
           {/* Onglets par fluide */}
-          <div className="flex gap-1 flex-wrap">
-            {fluidesDispo.map(f => (
-              <button key={f.id}
-                onClick={() => setFluideActif(f.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                  fluideActif === f.id
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white border-border text-text-muted hover:bg-gray-50'
-                }`}>
-                <span>{f.icon}</span> {f.label}
-              </button>
-            ))}
+          <div className="flex gap-1 flex-wrap items-center">
+            {fluidesDispo.map(f => {
+              const cpt = compteurByFluide[f.id];
+              const isActive = fluideActif === f.id;
+              return (
+                <div key={f.id} className="flex items-center">
+                  <button
+                    onClick={() => setFluideActif(f.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                      isActive
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-white border-border text-text-muted hover:bg-gray-50'
+                    }`}>
+                    <span>{f.icon}</span> {f.label}
+                  </button>
+                  {!isReadOnly && isActive && (
+                    <div className="flex items-center gap-0.5 ml-1">
+                      <button
+                        onClick={() => setEditCompteur({ ...cpt })}
+                        className="p-1.5 rounded hover:bg-blue-50 text-blue-400"
+                        title="Modifier le compteur"
+                      ><Edit2 size={12}/></button>
+                      <button
+                        onClick={() => handleDeleteCompteur(cpt)}
+                        className="p-1.5 rounded hover:bg-red-50 text-red-400"
+                        title="Supprimer le compteur et tous ses relevés"
+                      ><Trash2 size={12}/></button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Contenu de l'onglet actif */}
