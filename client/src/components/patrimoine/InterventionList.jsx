@@ -3,6 +3,7 @@ import { Edit2, Trash2, Building2, User } from 'lucide-react';
 import { api } from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 // ── Constantes statut (exportées pour les pages qui en ont besoin) ────────────
 export const STATUT_COLORS = {
@@ -117,7 +118,7 @@ function TotauxAgents({ items }) {
 }
 
 // ── Tableau partagé ───────────────────────────────────────────────────────────
-function InterventionTable({ rows, isPrestataire, isReadOnly, isAdmin, statutOverrides, onStatusChanged, onEdit, onDelete }) {
+function InterventionTable({ rows, isPrestataire, isReadOnly, canDelete, statutOverrides, onStatusChanged, onEdit, onDelete }) {
   if (rows.length === 0) {
     return (
       <div className="p-8 text-center text-text-muted text-sm">
@@ -234,7 +235,7 @@ function InterventionTable({ rows, isPrestataire, isReadOnly, isAdmin, statutOve
                       >
                         <Edit2 size={13} />
                       </button>
-                      {isAdmin && (
+                      {canDelete && (
                         <button
                           onClick={() => onDelete(iv)}
                           className="p-1.5 rounded hover:bg-red-50 text-red-400 transition-colors"
@@ -266,23 +267,21 @@ function InterventionTable({ rows, isPrestataire, isReadOnly, isAdmin, statutOve
  */
 export function InterventionList({ interventions, onRefresh, onEdit }) {
   const toast = useToast();
-  const { user } = useAuth();
-  const isReadOnly = user?.role === 'read';
-  const isAdmin    = user?.role === 'admin';
+  const { isReadOnly, canEditPatrimoineCouts } = useAuth();
 
   const [volet, setVolet]               = useState('prestataires');
   const [statutOverrides, setStatutOverrides] = useState({});
+  const [deleteTarget, setDeleteTarget]  = useState(null);
 
   const handleStatusChanged = (ivId, newStatut) => {
     setStatutOverrides(prev => ({ ...prev, [ivId]: newStatut }));
   };
 
-  const handleDelete = async (iv) => {
-    const label = iv.nature || iv.categorie || 'cette intervention';
-    if (!window.confirm(`Supprimer « ${label} » ?\nCette action est irréversible.`)) return;
+  const handleDelete = async () => {
     try {
-      await api.delete(`/patrimoine/interventions/${iv.id}`);
+      await api.delete(`/patrimoine/interventions/${deleteTarget.id}`);
       toast.success('Intervention supprimée');
+      setDeleteTarget(null);
       onRefresh();
     } catch (err) {
       toast.error(err.message);
@@ -363,11 +362,19 @@ export function InterventionList({ interventions, onRefresh, onEdit }) {
         rows={currentRows}
         isPrestataire={isPrestataire}
         isReadOnly={isReadOnly}
-        isAdmin={isAdmin}
+        canDelete={canEditPatrimoineCouts}
         statutOverrides={statutOverrides}
         onStatusChanged={handleStatusChanged}
         onEdit={onEdit}
-        onDelete={handleDelete}
+        onDelete={setDeleteTarget}
+      />
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Supprimer cette intervention"
+        message={`Supprimer l'intervention « ${deleteTarget?.nature || deleteTarget?.categorie || '—'} » du ${deleteTarget?.date_signalement ? new Date(deleteTarget.date_signalement + 'T00:00:00').toLocaleDateString('fr-FR') : '—'} ?`}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   );

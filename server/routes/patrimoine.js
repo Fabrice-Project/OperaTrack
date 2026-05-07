@@ -74,7 +74,7 @@ router.get('/interventions', ctrl.getInterventions);
 router.post('/interventions', requirePatrimoineCoutsWrite, ctrl.createIntervention);
 router.get('/interventions/:id', ctrl.getIntervention);
 router.put('/interventions/:id', requirePatrimoineCoutsWrite, ctrl.updateIntervention);
-router.delete('/interventions/:id', requireRole('admin'), ctrl.deleteIntervention);
+router.delete('/interventions/:id', requirePatrimoineCoutsWrite, ctrl.deleteIntervention);
 
 // ── Énergie — Dashboard global ────────────────────────────────────────────────
 router.get('/energie/dashboard', ectrl.getEnergieDashboard);
