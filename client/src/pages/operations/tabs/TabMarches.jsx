@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Trash2, Download, AlertTriangle, Hammer, PenTool, Shield, Package } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Trash2, Download, AlertTriangle, Hammer, PenTool, Shield, Package, Edit2 } from 'lucide-react';
 import { useMarches } from '../../../hooks/useFinances';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
@@ -37,6 +37,7 @@ export function TabMarches({ operationId }) {
   const toast = useToast();
   const [expanded, setExpanded] = useState({});
   const [showNewMarche, setShowNewMarche] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
   const [showAvenant, setShowAvenant] = useState(null);
   const [showOS, setShowOS] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -190,6 +191,9 @@ export function TabMarches({ operationId }) {
 
                 {!isReadOnly && (
                   <div className="flex gap-2">
+                    <button onClick={() => setEditTarget(marche)} className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1">
+                      <Edit2 size={12} /> Modifier le marché
+                    </button>
                     <button onClick={() => setDeleteTarget(marche)} className="btn-danger text-xs px-3 py-1.5 flex items-center gap-1">
                       <Trash2 size={12} /> Supprimer le marché
                     </button>
@@ -219,6 +223,7 @@ export function TabMarches({ operationId }) {
 
       {/* Modales */}
       {showNewMarche && <MarcheModal operationId={operationId} onClose={() => setShowNewMarche(false)} onSaved={refresh} />}
+      {editTarget && <MarcheModal operationId={operationId} existing={editTarget} onClose={() => setEditTarget(null)} onSaved={refresh} />}
       {showAvenant && <AvenantModal marcheId={showAvenant} onClose={() => setShowAvenant(null)} onSaved={refresh} />}
       {showOS && <OSModal marcheId={showOS} onClose={() => setShowOS(null)} onSaved={refresh} />}
       <ConfirmModal
@@ -337,9 +342,21 @@ function SectionOS({ marche, isReadOnly, onAdd, onDelete }) {
   );
 }
 
-function MarcheModal({ operationId, onClose, onSaved }) {
+function MarcheModal({ operationId, existing, onClose, onSaved }) {
   const toast = useToast();
-  const [form, setForm] = useState({ numero: '', intitule: '', type: 'travaux', procedure: 'appel_offres_ouvert', titulaire_nom: '', titulaire_siret: '', montant_initial_ht: '', date_notification: '', delai_execution: '', statut: 'en_cours' });
+  const [form, setForm] = useState({
+    numero:            existing?.numero            || '',
+    intitule:          existing?.intitule          || '',
+    type:              existing?.type              || 'travaux',
+    procedure:         existing?.procedure         || 'appel_offres_ouvert',
+    titulaire_nom:     existing?.titulaire_nom     || '',
+    titulaire_siret:   existing?.titulaire_siret   || '',
+    montant_initial_ht: existing?.montant_initial_ht ?? '',
+    date_notification: existing?.date_notification || '',
+    delai_execution:   existing?.delai_execution   ?? '',
+    date_fin_reelle:   existing?.date_fin_reelle   || '',
+    statut:            existing?.statut            || 'en_cours',
+  });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -347,8 +364,13 @@ function MarcheModal({ operationId, onClose, onSaved }) {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.post(`/operations/${operationId}/marches`, form);
-      toast.success('Marché créé avec succès');
+      if (existing) {
+        await api.put(`/marches/${existing.id}`, form);
+        toast.success('Marché modifié avec succès');
+      } else {
+        await api.post(`/operations/${operationId}/marches`, form);
+        toast.success('Marché créé avec succès');
+      }
       onSaved();
       onClose();
     } catch (err) { toast.error(err.message); }
@@ -358,7 +380,9 @@ function MarcheModal({ operationId, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 animate-fade-in">
       <div className="card p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h3 className="font-heading font-semibold text-text-main text-base mb-4">Nouveau marché</h3>
+        <h3 className="font-heading font-semibold text-text-main text-base mb-4">
+          {existing ? 'Modifier le marché' : 'Nouveau marché'}
+        </h3>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -417,9 +441,17 @@ function MarcheModal({ operationId, onClose, onSaved }) {
               <input type="number" className="form-input" value={form.delai_execution} onChange={e => set('delai_execution', e.target.value)} min="0" />
             </div>
           </div>
+          {existing && (
+            <div>
+              <label className="form-label">Date de fin réelle</label>
+              <input type="date" className="form-input" value={form.date_fin_reelle} onChange={e => set('date_fin_reelle', e.target.value)} />
+            </div>
+          )}
           <div className="flex justify-end gap-3 mt-2">
             <button type="button" className="btn-secondary" onClick={onClose}>Annuler</button>
-            <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Enregistrement…' : 'Créer le marché'}</button>
+            <button type="submit" className="btn-primary" disabled={saving}>
+              {saving ? 'Enregistrement…' : existing ? 'Enregistrer les modifications' : 'Créer le marché'}
+            </button>
           </div>
         </form>
       </div>
