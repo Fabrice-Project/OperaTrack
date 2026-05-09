@@ -24,6 +24,7 @@ const ROLE_LABELS = {
   read:                     'Directeur / DGA / Élus',
   administratif:            'Administratif',
   compta:                   'Administratif',
+  exploitant:               'Exploitant',
 };
 const ROLE_COLORS = {
   administrateur: '#C0392B', admin: '#C0392B',
@@ -31,6 +32,7 @@ const ROLE_COLORS = {
   gestionnaire_patrimonial: '#0E7490',
   directeur: '#1E7E45', read: '#1E7E45',
   administratif: '#7B3FA0', compta: '#7B3FA0',
+  exploitant: '#D97706',
 };
 
 // Options du menu déroulant (nouveaux noms)
@@ -40,6 +42,7 @@ const ROLE_OPTIONS = [
   { value: 'gestionnaire_patrimonial', label: 'Gestionnaire patrimonial' },
   { value: 'directeur',                label: 'Directeur / DGA / Élus' },
   { value: 'administratif',            label: 'Administratif' },
+  { value: 'exploitant',               label: 'Exploitant' },
 ];
 
 function RoleBadge({ role }) {
