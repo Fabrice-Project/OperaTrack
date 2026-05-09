@@ -37,7 +37,7 @@ router.post('/users/invite', requireRole('admin'), async (req, res) => {
 
   const validRoles = [
     'administrateur', 'charge_operation', 'gestionnaire_patrimonial', 'directeur', 'administratif',
-    'admin', 'write', 'read', 'compta',
+    'admin', 'write', 'read', 'compta', 'exploitant',
   ];
   if (!validRoles.includes(role)) return error(res, 'Rôle invalide', 400);
 
