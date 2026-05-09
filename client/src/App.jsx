@@ -20,6 +20,7 @@ import ArmoirePage from './pages/patrimoine/eclairage/ArmoirePage';
 import BatimentPage from './pages/patrimoine/batiments/BatimentPage';
 import EnergieDashboardPage from './pages/patrimoine/energie/EnergieDashboardPage';
 import RapportEnergiePage from './pages/patrimoine/energie/RapportEnergiePage';
+import ExploitantPage from './pages/demandes/ExploitantPage';
 
 const WRITE_ROLES = ['write', 'charge_operation', 'compta', 'administratif', 'gestionnaire_patrimonial'];
 
@@ -48,17 +49,23 @@ function InviteSessionGuard() {
   return null;
 }
 
-function ProtectedRoute({ children, hideForWrite = false }) {
-  const { user, loading } = useAuth();
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-page">
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-text-muted text-sm">Chargement…</p>
-      </div>
+const Spinner = () => (
+  <div className="min-h-screen flex items-center justify-center bg-bg-page">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-text-muted text-sm">Chargement…</p>
     </div>
-  );
+  </div>
+);
+
+function ProtectedRoute({ children, hideForWrite = false, exploitantOnly = false }) {
+  const { user, loading } = useAuth();
+  if (loading) return <Spinner />;
   if (!user) return <Navigate to="/login" replace />;
+  // L'exploitant ne peut accéder qu'à sa page dédiée
+  if (user.role === 'exploitant' && !exploitantOnly) return <Navigate to="/demandes" replace />;
+  // Les autres rôles ne peuvent pas accéder aux routes exploitant-only
+  if (exploitantOnly && user.role !== 'exploitant') return <Navigate to="/" replace />;
   if (hideForWrite && WRITE_ROLES.includes(user?.role)) return <Navigate to="/" replace />;
   return children;
 }
@@ -90,6 +97,8 @@ export default function App() {
             <Route path="/patrimoine/batiments/:id" element={<ProtectedRoute><BatimentPage /></ProtectedRoute>} />
             <Route path="/patrimoine/energie" element={<ProtectedRoute><EnergieDashboardPage /></ProtectedRoute>} />
             <Route path="/patrimoine/energie/rapport" element={<ProtectedRoute><RapportEnergiePage /></ProtectedRoute>} />
+            <Route path="/patrimoine/demandes" element={<ProtectedRoute><PatrimoinePage defaultTab="demandes" /></ProtectedRoute>} />
+            <Route path="/demandes" element={<ProtectedRoute exploitantOnly><ExploitantPage /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </ToastProvider>

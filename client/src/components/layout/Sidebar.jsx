@@ -1,5 +1,5 @@
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderOpen, BarChart3, Settings, Building2, Route, Lightbulb, Zap, X } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, BarChart3, Settings, Building2, Route, Lightbulb, Zap, X, Bell } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 // Rôles exclus de la section Paramètres (admin uniquement pour l'écriture)
@@ -29,6 +29,7 @@ const PATRIMOINE_ITEMS = [
   { to: '/patrimoine/eclairage', icon: Lightbulb, label: 'Éclairage public' },
   { to: '/patrimoine/batiments', icon: Building2, label: 'Bâtiments' },
   { to: '/patrimoine/energie',   icon: Zap,       label: 'Tableau de bord énergie' },
+  { to: '/patrimoine/demandes',  icon: Bell,      label: 'Demandes d\'intervention' },
 ];
 
 export function Sidebar({ isOpen, onClose }) {
@@ -123,6 +124,7 @@ const PROFIL_LABELS = {
   read:                       'Directeur / DGA',
   administratif:              'Administratif',
   compta:                     'Administratif',
+  exploitant:                 'Exploitant',
 };
 
 function ProfilBadge({ role }) {

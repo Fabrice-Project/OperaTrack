@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
-import { Plus, Route, Lightbulb, Building2, X, FileDown, Sheet, Briefcase, ChevronDown, ChevronRight, RefreshCw, ClipboardList, Edit2, Search, Undo2, Trash2, FileUp, MapPin } from 'lucide-react';
+import { Plus, Route, Lightbulb, Building2, X, FileDown, Sheet, Briefcase, ChevronDown, ChevronRight, RefreshCw, ClipboardList, Edit2, Search, Undo2, Trash2, FileUp, MapPin, Bell } from 'lucide-react';
 import { ImportEclairageModal } from './eclairage/ImportEclairageModal';
 import { RapportModal } from '../../components/patrimoine/RapportModal';
 import {
@@ -14,6 +14,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { InterventionModal } from '../../components/patrimoine/InterventionModal';
+import { TabDemandes } from './TabDemandes';
 import { api } from '../../utils/api';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -2125,9 +2126,10 @@ function TabBatiments() {
 
 // Page principale
 const TABS = [
-  { id: 'voirie',    label: 'Voirie',           icon: Route },
-  { id: 'eclairage', label: 'Éclairage public',  icon: Lightbulb },
-  { id: 'batiments', label: 'Bâtiments',         icon: Building2 },
+  { id: 'voirie',    label: 'Voirie',               icon: Route },
+  { id: 'eclairage', label: 'Éclairage public',      icon: Lightbulb },
+  { id: 'batiments', label: 'Bâtiments',             icon: Building2 },
+  { id: 'demandes',  label: 'Demandes d\'intervention', icon: Bell },
 ];
 
 export default function PatrimoinePage({ defaultTab = 'voirie' }) {
@@ -2163,6 +2165,7 @@ export default function PatrimoinePage({ defaultTab = 'voirie' }) {
         {tab === 'voirie'    && <TabVoirie />}
         {tab === 'eclairage' && <TabEclairage />}
         {tab === 'batiments' && <TabBatiments />}
+        {tab === 'demandes'  && <TabDemandes />}
       </div>
     </AppLayout>
   );

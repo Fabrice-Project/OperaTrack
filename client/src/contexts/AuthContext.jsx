@@ -61,6 +61,7 @@ export function AuthProvider({ children }) {
   const isGestPatrim    = r === 'gestionnaire_patrimonial';
   const isDirecteur     = r === 'read'         || r === 'directeur';
   const isAdministratif = r === 'compta'       || r === 'administratif';
+  const isExploitant    = r === 'exploitant';
 
   const habilitationPatrimoniale = user?.habilitation_patrimoniale === true;
 
@@ -101,6 +102,7 @@ export function AuthProvider({ children }) {
       isGestPatrim,
       isDirecteur,
       isAdministratif,
+      isExploitant,
       habilitationPatrimoniale,
       // Permissions
       isReadOnly,

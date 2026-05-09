@@ -7,6 +7,7 @@ const isChargeOp      = r => r === 'write'        || r === 'charge_operation';
 const isGestPatrim    = r => r === 'gestionnaire_patrimonial';
 const isDirecteur     = r => r === 'read'         || r === 'directeur';
 const isAdministratif = r => r === 'compta'       || r === 'administratif';
+const isExploitant    = r => r === 'exploitant';
 
 // ── Middleware principal — authentification ───────────────────────────────────
 const authenticate = async (req, res, next) => {
@@ -117,4 +118,5 @@ module.exports = {
   isGestPatrim,
   isDirecteur,
   isAdministratif,
+  isExploitant,
 };
