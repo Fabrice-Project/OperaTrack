@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, FolderOpen, BarChart3, Settings, Building2, Route, Lightbulb, Zap, X, Bell } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { api } from '../../utils/api';
 
 // Rôles exclus de la section Paramètres (admin uniquement pour l'écriture)
 const HIDE_SETTINGS_ROLES = ['write', 'charge_operation', 'compta', 'administratif', 'gestionnaire_patrimonial'];
@@ -32,12 +34,30 @@ const PATRIMOINE_ITEMS = [
   { to: '/patrimoine/demandes',  icon: Bell,      label: 'Demandes d\'intervention' },
 ];
 
+function useNouvellesDemandes(enabled) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    const fetch = () => {
+      api.get('/demandes').then(data => {
+        if (!cancelled) setCount((data || []).filter(d => d.statut === 'nouvelle').length);
+      }).catch(() => {});
+    };
+    fetch();
+    const interval = setInterval(fetch, 60000); // rafraîchissement toutes les 60s
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [enabled]);
+  return count;
+}
+
 export function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isAdmin, isGestPatrim } = useAuth();
   const userRole = user?.role || 'directeur';
   const isOpsActive       = location.pathname.startsWith('/operations');
   const isPatrimoineActive = location.pathname.startsWith('/patrimoine');
+  const nbNouvelles = useNouvellesDemandes(isAdmin || isGestPatrim);
 
   const navItems = NAV_ITEMS.filter(item =>
     !item.hideForRoles || !item.hideForRoles.includes(userRole)
@@ -99,7 +119,12 @@ export function Sidebar({ isOpen, onClose }) {
               } : {}}
             >
               <item.icon size={18} className="text-white shrink-0" />
-              <span className="text-white text-sm font-medium">{item.label}</span>
+              <span className="text-white text-sm font-medium flex-1">{item.label}</span>
+              {item.to === '/patrimoine/demandes' && nbNouvelles > 0 && (
+                <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white min-w-[20px] text-center leading-tight">
+                  {nbNouvelles}
+                </span>
+              )}
             </NavLink>
           ))}
         </div>

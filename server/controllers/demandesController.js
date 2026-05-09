@@ -1,8 +1,6 @@
 const { supabaseAdmin } = require('../utils/supabase');
 const { success, error } = require('../utils/response');
 
-const SELECT = '*, batiment:batiments(id, intitule, adresse)';
-
 // GET /api/v1/demandes
 // - exploitant : ses propres demandes
 // - autres     : toutes les demandes
@@ -10,16 +8,33 @@ const getDemandes = async (req, res) => {
   try {
     let query = supabaseAdmin
       .from('demandes_intervention')
-      .select(SELECT)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (req.role === 'exploitant') {
       query = query.eq('demandeur_id', req.user.id);
     }
 
-    const { data, error: err } = await query;
+    const { data: demandes, error: err } = await query;
     if (err) throw err;
-    success(res, data || []);
+
+    // Join manuel — évite les problèmes de cache de schéma Supabase sur tables récentes
+    const batimentIds = [...new Set((demandes || []).map(d => d.batiment_id).filter(Boolean))];
+    let batimentMap = {};
+    if (batimentIds.length > 0) {
+      const { data: batiments } = await supabaseAdmin
+        .from('batiments')
+        .select('id, intitule, adresse')
+        .in('id', batimentIds);
+      (batiments || []).forEach(b => { batimentMap[b.id] = b; });
+    }
+
+    const result = (demandes || []).map(d => ({
+      ...d,
+      batiment: batimentMap[d.batiment_id] || null,
+    }));
+
+    success(res, result);
   } catch (err) { error(res, err.message); }
 };
 
@@ -42,7 +57,7 @@ const createDemande = async (req, res) => {
         demandeur_id:  req.user.id,
         demandeur_nom: req.user.user_metadata?.full_name || req.user.email,
       }])
-      .select(SELECT)
+      .select('*')
       .single();
 
     if (err) throw err;
@@ -65,7 +80,7 @@ const updateDemande = async (req, res) => {
       .from('demandes_intervention')
       .update(updates)
       .eq('id', id)
-      .select(SELECT)
+      .select('*')
       .single();
 
     if (err) throw err;

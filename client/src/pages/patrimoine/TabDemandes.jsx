@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, Clock, CheckCircle, XCircle, PlayCircle, Calendar, ChevronDown, ChevronUp, Save, X } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, XCircle, PlayCircle, Calendar, ChevronDown, ChevronUp, Save, X, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -52,6 +53,7 @@ function fmtDate(d) {
 // ── Ligne de demande expansible ───────────────────────────────────────────────
 function DemandeLine({ demande, onUpdated, canEdit }) {
   const toast = useToast();
+  const navigate = useNavigate();
   const [open, setOpen]           = useState(false);
   const [form, setForm]           = useState({
     statut:                   demande.statut,
@@ -108,6 +110,19 @@ function DemandeLine({ demande, onUpdated, canEdit }) {
             <div>
               <div className="text-xs font-medium text-text-muted uppercase tracking-wide mb-1">Description</div>
               <p className="text-sm text-text-main whitespace-pre-line">{demande.description}</p>
+            </div>
+          )}
+
+          {/* Lien vers la fiche bâtiment */}
+          {demande.batiment_id && (
+            <div>
+              <button
+                onClick={() => navigate(`/patrimoine/batiments/${demande.batiment_id}`)}
+                className="inline-flex items-center gap-1.5 text-xs text-secondary hover:underline font-medium"
+              >
+                <ExternalLink size={12} />
+                Ouvrir la fiche bâtiment — {demande.batiment?.intitule || demande.batiment_id}
+              </button>
             </div>
           )}
 
