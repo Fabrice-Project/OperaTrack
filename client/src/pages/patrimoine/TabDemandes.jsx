@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { HistoriqueDemande } from '../../components/patrimoine/HistoriqueDemande';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 const URGENCES = {
@@ -182,6 +183,11 @@ function DemandeLine({ demande, onUpdated, canEdit }) {
               {demande.commentaire_gestionnaire}
             </div>
           )}
+
+          {/* Historique des échanges */}
+          <div className="border-t border-gray-100 pt-3 mt-1">
+            <HistoriqueDemande demandeId={demande.id} onMessageSent={onUpdated} />
+          </div>
         </div>
       )}
     </div>

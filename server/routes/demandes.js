@@ -14,4 +14,10 @@ router.post('/', ctrl.createDemande);
 // Mise à jour statut/commentaire : gestionnaire patrimonial et admin uniquement
 router.put('/:id', requireRole('admin', 'gestionnaire_patrimonial'), ctrl.updateDemande);
 
+// Historique : lecture accessible à tous (exploitant voit son propre historique)
+router.get('/:id/historique', ctrl.getHistorique);
+
+// Message libre : tous les profils authentifiés
+router.post('/:id/messages', ctrl.addMessage);
+
 module.exports = router;
