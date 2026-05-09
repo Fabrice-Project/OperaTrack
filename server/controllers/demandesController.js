@@ -1,7 +1,7 @@
 const { supabaseAdmin } = require('../utils/supabase');
 const { success, error } = require('../utils/response');
 
-const SELECT = '*, batiment:batiments(id, nom, adresse)';
+const SELECT = '*, batiment:batiments(id, intitule, adresse)';
 
 // GET /api/v1/demandes
 // - exploitant : ses propres demandes

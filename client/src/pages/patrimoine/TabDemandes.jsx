@@ -89,7 +89,7 @@ function DemandeLine({ demande, onUpdated, canEdit }) {
             <StatutBadge statut={demande.statut} />
           </div>
           <div className="text-xs text-text-muted mt-0.5">
-            <span className="font-medium">{demande.batiment?.nom || '—'}</span>
+            <span className="font-medium">{demande.batiment?.intitule || '—'}</span>
             {' · '}
             <span>{demande.demandeur_nom || '—'}</span>
             {' · '}
