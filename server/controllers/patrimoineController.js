@@ -1266,19 +1266,24 @@ const getBilanInterventions = async (req, res) => {
 
     const nameMap = {}; // element_id → label
 
+    const tronconMap = {}; // mobilier element_id → troncon_id
+
     await Promise.all(Object.entries(byTheme).map(async ([t, ids]) => {
       const uniqueIds = [...new Set(ids)];
       let table, select, labelFn;
 
-      if      (t === 'voirie')    { table = 'troncons_voirie';     select = 'id, intitule';                   labelFn = r => r.intitule; }
-      else if (t === 'eclairage') { table = 'points_lumineux';     select = 'id, reference';                  labelFn = r => r.reference; }
-      else if (t === 'armoire')   { table = 'armoires_eclairage';  select = 'id, intitule';                   labelFn = r => r.intitule; }
-      else if (t === 'batiment')  { table = 'batiments';           select = 'id, intitule';                   labelFn = r => r.intitule; }
-      else if (t === 'mobilier')  { table = 'mobilier_urbain';     select = 'id, type, reference_terrain';    labelFn = r => r.reference_terrain ? `${r.type} — ${r.reference_terrain}` : r.type; }
+      if      (t === 'voirie')    { table = 'troncons_voirie';     select = 'id, intitule';                          labelFn = r => r.intitule; }
+      else if (t === 'eclairage') { table = 'points_lumineux';     select = 'id, reference';                         labelFn = r => r.reference; }
+      else if (t === 'armoire')   { table = 'armoires_eclairage';  select = 'id, intitule';                          labelFn = r => r.intitule; }
+      else if (t === 'batiment')  { table = 'batiments';           select = 'id, intitule';                          labelFn = r => r.intitule; }
+      else if (t === 'mobilier')  { table = 'mobilier_urbain';     select = 'id, type, reference_terrain, troncon_id'; labelFn = r => r.reference_terrain ? `${r.type} — ${r.reference_terrain}` : r.type; }
       else return;
 
       const { data } = await supabaseAdmin.from(table).select(select).in('id', uniqueIds);
-      (data || []).forEach(r => { nameMap[r.id] = labelFn(r) || r.id; });
+      (data || []).forEach(r => {
+        nameMap[r.id] = labelFn(r) || r.id;
+        if (t === 'mobilier' && r.troncon_id) tronconMap[r.id] = r.troncon_id;
+      });
     }));
 
     // Construire le résultat
@@ -1286,6 +1291,7 @@ const getBilanInterventions = async (req, res) => {
       ...g,
       label: nameMap[g.element_id] || g.element_id,
       total: g.montant_prestataire + g.montant_achat,
+      troncon_id: tronconMap[g.element_id] || null, // pour le mobilier
     }));
     sites.sort((a, b) => b.total - a.total || b.nb - a.nb);
 

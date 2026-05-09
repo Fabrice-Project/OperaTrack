@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { BarChart3, Download, RefreshCw } from 'lucide-react';
+import { BarChart3, Download, RefreshCw, ExternalLink } from 'lucide-react';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { api } from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
@@ -36,6 +37,17 @@ function fmtEur(v) {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(v);
 }
 
+function siteUrl(s) {
+  switch (s.theme) {
+    case 'batiment':  return `/patrimoine/batiments/${s.element_id}`;
+    case 'voirie':    return `/patrimoine/voirie/${s.element_id}`;
+    case 'eclairage': return `/patrimoine/eclairage/${s.element_id}`;
+    case 'armoire':   return `/patrimoine/eclairage/armoire/${s.element_id}`;
+    case 'mobilier':  return s.troncon_id ? `/patrimoine/voirie/${s.troncon_id}` : null;
+    default:          return null;
+  }
+}
+
 function fmtH(v) {
   if (!v && v !== 0) return '—';
   return `${Number(v).toFixed(1)} h`;
@@ -68,6 +80,7 @@ function CustomTooltip({ active, payload, label }) {
 // ── Composant principal ───────────────────────────────────────────────────────
 export default function BilanInterventionsPage() {
   const toast = useToast();
+  const navigate = useNavigate();
 
   const [dateDebut, setDateDebut] = useState(startOfYear());
   const [dateFin,   setDateFin]   = useState(today());
@@ -311,8 +324,15 @@ export default function BilanInterventionsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {sorted.map((s, i) => (
-                    <tr key={`${s.theme}__${s.element_id}`} className="hover:bg-gray-50 transition-colors">
+                  {sorted.map((s) => {
+                    const url = siteUrl(s);
+                    return (
+                    <tr
+                      key={`${s.theme}__${s.element_id}`}
+                      onClick={() => url && navigate(url)}
+                      className={`transition-colors ${url ? 'cursor-pointer hover:bg-blue-50/60' : 'hover:bg-gray-50'}`}
+                      title={url ? `Ouvrir la fiche ${THEME_LABELS[s.theme] || s.theme}` : undefined}
+                    >
                       <td className="px-4 py-2.5">
                         <span
                           className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
@@ -324,8 +344,11 @@ export default function BilanInterventionsPage() {
                           {THEME_LABELS[s.theme] || s.theme}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 font-medium text-text-main max-w-[220px] truncate" title={s.label}>
-                        {s.label}
+                      <td className="px-4 py-2.5 font-medium text-text-main max-w-[220px]" title={s.label}>
+                        <span className="flex items-center gap-1.5">
+                          <span className="truncate">{s.label}</span>
+                          {url && <ExternalLink size={12} className="shrink-0 text-text-muted/50" />}
+                        </span>
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-text-muted">
                         {s.nb}
@@ -343,7 +366,8 @@ export default function BilanInterventionsPage() {
                         {s.total > 0 ? fmtEur(s.total) : <span className="text-text-muted">0 €</span>}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
                 <tfoot className="bg-gray-50 border-t-2 border-border">
                   <tr>
