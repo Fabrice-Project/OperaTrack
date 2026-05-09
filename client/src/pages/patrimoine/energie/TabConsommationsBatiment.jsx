@@ -614,7 +614,7 @@ export function TabConsommationsBatiment({ batimentId }) {
 
   const [compteurs, setCompteurs]   = useState([]);
   const [synthese, setSynthese]     = useState(null);
-  const [fluideActif, setFluideActif] = useState(null);
+  const [compteurActifId, setCompteurActifId] = useState(null);
   const [anneeN, setAnneeN]         = useState(new Date().getFullYear() - 1);
   const [loading, setLoading]       = useState(true);
   const [showAddCompteur, setShowAddCompteur] = useState(false);
@@ -631,7 +631,7 @@ export function TabConsommationsBatiment({ batimentId }) {
       ]);
       setCompteurs(cpts);
       setSynthese(syn);
-      if (!fluideActif && cpts.length > 0) setFluideActif(cpts[0].fluide);
+      if (!compteurActifId && cpts.length > 0) setCompteurActifId(cpts[0].id);
     } catch (err) { toast.error(err.message); }
     finally { setLoading(false); }
   }, [batimentId, anneeN]);
@@ -642,10 +642,11 @@ export function TabConsommationsBatiment({ batimentId }) {
     e.preventDefault();
     setAddSaving(true);
     try {
-      await api.post('/patrimoine/compteurs', { ...addForm, batiment_id: batimentId });
+      const added = await api.post('/patrimoine/compteurs', { ...addForm, batiment_id: batimentId });
       toast.success('Compteur ajouté');
       setShowAddCompteur(false);
       setAddForm({ fluide: 'electricite', reference_compteur: '', fournisseur: '', unite: 'kWh' });
+      setCompteurActifId(added.id);
       loadAll();
     } catch (err) { toast.error(err.message); }
     finally { setAddSaving(false); }
@@ -673,18 +674,12 @@ export function TabConsommationsBatiment({ batimentId }) {
     try {
       await api.delete(`/patrimoine/compteurs/${cpt.id}`);
       toast.success('Compteur supprimé');
-      setFluideActif(compteurs.find(c => c.id !== cpt.id)?.fluide || null);
+      setCompteurActifId(compteurs.find(c => c.id !== cpt.id)?.id || null);
       loadAll();
     } catch (err) { toast.error(err.message); }
   };
 
-  // Grouper par fluide (un compteur par fluide, premier actif)
-  const compteurByFluide = {};
-  compteurs.forEach(c => {
-    if (!compteurByFluide[c.fluide]) compteurByFluide[c.fluide] = c;
-  });
-  const fluidesDispo = FLUIDES.filter(f => compteurByFluide[f.id]);
-  const compteurActif = fluideActif ? compteurByFluide[fluideActif] : null;
+  const compteurActif = compteurs.find(c => c.id === compteurActifId) || null;
 
   if (loading) return (
     <div className="flex items-center justify-center py-16 text-text-muted text-sm gap-2">
@@ -832,21 +827,22 @@ export function TabConsommationsBatiment({ batimentId }) {
         </div>
       ) : (
         <>
-          {/* Onglets par fluide */}
+          {/* Onglets par compteur */}
           <div className="flex gap-1 flex-wrap items-center">
-            {fluidesDispo.map(f => {
-              const cpt = compteurByFluide[f.id];
-              const isActive = fluideActif === f.id;
+            {compteurs.map(cpt => {
+              const f = FLUIDES.find(fl => fl.id === cpt.fluide) || {};
+              const isActive = compteurActifId === cpt.id;
               return (
-                <div key={f.id} className="flex items-center">
+                <div key={cpt.id} className="flex items-center">
                   <button
-                    onClick={() => setFluideActif(f.id)}
+                    onClick={() => setCompteurActifId(cpt.id)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
                       isActive
                         ? 'bg-primary text-white border-primary'
                         : 'bg-white border-border text-text-muted hover:bg-gray-50'
                     }`}>
-                    <span>{f.icon}</span> {f.label}
+                    <span>{f.icon}</span>
+                    <span>{cpt.reference_compteur || f.label}</span>
                   </button>
                   {!isReadOnly && isActive && (
                     <div className="flex items-center gap-0.5 ml-1">
