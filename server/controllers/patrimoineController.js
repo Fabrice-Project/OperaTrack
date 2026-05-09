@@ -1216,6 +1216,90 @@ const deleteDocBatiment = async (req, res) => {
   success(res, { deleted: true });
 };
 
+// ── BILAN DES INTERVENTIONS PAR SITE ─────────────────────────────────────────
+const getBilanInterventions = async (req, res) => {
+  try {
+    const { date_debut, date_fin, theme } = req.query;
+
+    let query = supabaseAdmin
+      .from('interventions_patrimoine')
+      .select('id, theme, element_id, type_intervenant, montant_ht, nombre_heures, montant_achat, date_signalement');
+
+    if (date_debut) query = query.gte('date_signalement', date_debut);
+    if (date_fin)   query = query.lte('date_signalement', date_fin + 'T23:59:59');
+    if (theme)      query = query.eq('theme', theme);
+
+    const { data: interventions, error: dbErr } = await query;
+    if (dbErr) throw dbErr;
+
+    // Regrouper par (theme, element_id)
+    const grouped = {};
+    for (const iv of (interventions || [])) {
+      const key = `${iv.theme}__${iv.element_id}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          theme: iv.theme,
+          element_id: iv.element_id,
+          label: null,
+          nb: 0,
+          montant_prestataire: 0,
+          montant_achat: 0,
+          heures_regie: 0,
+        };
+      }
+      const g = grouped[key];
+      g.nb += 1;
+      if (iv.type_intervenant === 'prestataire') {
+        g.montant_prestataire += parseFloat(iv.montant_ht) || 0;
+      } else {
+        g.heures_regie  += parseFloat(iv.nombre_heures) || 0;
+        g.montant_achat += parseFloat(iv.montant_achat) || 0;
+      }
+    }
+
+    // Récupérer les libellés pour chaque thème
+    const byTheme = {};
+    for (const g of Object.values(grouped)) {
+      if (!byTheme[g.theme]) byTheme[g.theme] = [];
+      byTheme[g.theme].push(g.element_id);
+    }
+
+    const nameMap = {}; // element_id → label
+
+    await Promise.all(Object.entries(byTheme).map(async ([t, ids]) => {
+      const uniqueIds = [...new Set(ids)];
+      let table, select, labelFn;
+
+      if      (t === 'voirie')    { table = 'troncons_voirie';     select = 'id, intitule';                   labelFn = r => r.intitule; }
+      else if (t === 'eclairage') { table = 'points_lumineux';     select = 'id, reference';                  labelFn = r => r.reference; }
+      else if (t === 'armoire')   { table = 'armoires_eclairage';  select = 'id, intitule';                   labelFn = r => r.intitule; }
+      else if (t === 'batiment')  { table = 'batiments';           select = 'id, intitule';                   labelFn = r => r.intitule; }
+      else if (t === 'mobilier')  { table = 'mobilier_urbain';     select = 'id, type, reference_terrain';    labelFn = r => r.reference_terrain ? `${r.type} — ${r.reference_terrain}` : r.type; }
+      else return;
+
+      const { data } = await supabaseAdmin.from(table).select(select).in('id', uniqueIds);
+      (data || []).forEach(r => { nameMap[r.id] = labelFn(r) || r.id; });
+    }));
+
+    // Construire le résultat
+    const sites = Object.values(grouped).map(g => ({
+      ...g,
+      label: nameMap[g.element_id] || g.element_id,
+      total: g.montant_prestataire + g.montant_achat,
+    }));
+    sites.sort((a, b) => b.total - a.total || b.nb - a.nb);
+
+    const kpis = {
+      nb_total:                   sites.reduce((s, r) => s + r.nb, 0),
+      montant_prestataire_total:  sites.reduce((s, r) => s + r.montant_prestataire, 0),
+      montant_achat_total:        sites.reduce((s, r) => s + r.montant_achat, 0),
+      heures_regie_total:         sites.reduce((s, r) => s + r.heures_regie, 0),
+    };
+
+    success(res, { kpis, sites });
+  } catch (err) { error(res, err.message); }
+};
+
 module.exports = {
   getVoirie, createTroncon, getTroncon, updateTroncon, deleteTroncon,
   getMarches, createMarche, getMarche, updateMarche, deleteMarche,
@@ -1228,6 +1312,7 @@ module.exports = {
   getBatiments, createBatiment, getBatiment, updateBatiment,
   getEquipements, getAllEquipements, createEquipement, updateEquipement, deleteEquipement,
   getInterventions, createIntervention, getIntervention, updateIntervention, deleteIntervention,
+  getBilanInterventions,
   getControlesBatiment, createControleBatiment, updateControleBatiment, deleteControleBatiment,
   getDashboard,
   getDocsBatiment, createRepertoireBatiment, deleteRepertoireBatiment,

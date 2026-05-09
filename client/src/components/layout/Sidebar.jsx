@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderOpen, BarChart3, Settings, Building2, Route, Lightbulb, Zap, X, Bell } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, BarChart3, Settings, Building2, Route, Lightbulb, Zap, X, Bell, PieChart } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../utils/api';
 
@@ -32,6 +32,7 @@ const PATRIMOINE_ITEMS = [
   { to: '/patrimoine/batiments', icon: Building2, label: 'Bâtiments' },
   { to: '/patrimoine/energie',   icon: Zap,       label: 'Tableau de bord énergie' },
   { to: '/patrimoine/demandes',  icon: Bell,      label: 'Demandes d\'intervention' },
+  { to: '/patrimoine/bilan',     icon: PieChart,  label: 'Bilan interventions' },
 ];
 
 function useNouvellesDemandes(enabled) {

@@ -21,6 +21,7 @@ import BatimentPage from './pages/patrimoine/batiments/BatimentPage';
 import EnergieDashboardPage from './pages/patrimoine/energie/EnergieDashboardPage';
 import RapportEnergiePage from './pages/patrimoine/energie/RapportEnergiePage';
 import ExploitantPage from './pages/demandes/ExploitantPage';
+import BilanInterventionsPage from './pages/patrimoine/BilanInterventionsPage';
 
 const WRITE_ROLES = ['write', 'charge_operation', 'compta', 'administratif', 'gestionnaire_patrimonial'];
 
@@ -98,6 +99,7 @@ export default function App() {
             <Route path="/patrimoine/energie" element={<ProtectedRoute><EnergieDashboardPage /></ProtectedRoute>} />
             <Route path="/patrimoine/energie/rapport" element={<ProtectedRoute><RapportEnergiePage /></ProtectedRoute>} />
             <Route path="/patrimoine/demandes" element={<ProtectedRoute><PatrimoinePage defaultTab="demandes" /></ProtectedRoute>} />
+            <Route path="/patrimoine/bilan" element={<ProtectedRoute><BilanInterventionsPage /></ProtectedRoute>} />
             <Route path="/demandes" element={<ProtectedRoute exploitantOnly><ExploitantPage /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

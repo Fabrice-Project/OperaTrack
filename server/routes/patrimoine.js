@@ -69,6 +69,9 @@ router.post('/batiments/:id/controles',   requirePatrimoineReferentielWrite, ctr
 router.put('/controles-batiment/:id',     requirePatrimoineReferentielWrite, ctrl.updateControleBatiment);
 router.delete('/controles-batiment/:id',  requireRole('admin'), ctrl.deleteControleBatiment);
 
+// ── Bilan interventions ───────────────────────────────────────────────────────
+router.get('/bilan-interventions', ctrl.getBilanInterventions);
+
 // ── Interventions ─────────────────────────────────────────────────────────────
 router.get('/interventions', ctrl.getInterventions);
 router.post('/interventions', requirePatrimoineCoutsWrite, ctrl.createIntervention);
