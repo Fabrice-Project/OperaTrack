@@ -31,7 +31,7 @@ const THEME_LABELS = {
   mobilier:  'Mobilier',
 };
 
-function fmt€(v) {
+function fmtEur(v) {
   if (!v && v !== 0) return '—';
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(v);
 }
@@ -58,7 +58,7 @@ function CustomTooltip({ active, payload, label }) {
         <div key={p.name} className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.fill }} />
           <span className="text-text-muted">{p.name} :</span>
-          <span className="font-medium">{fmt€(p.value)}</span>
+          <span className="font-medium">{fmtEur(p.value)}</span>
         </div>
       ))}
     </div>
@@ -239,11 +239,11 @@ export default function BilanInterventionsPage() {
           </div>
           <div className="card p-4">
             <div className="text-xs text-text-muted mb-1">Coût prestataires</div>
-            <div className="font-mono font-bold text-xl text-blue-600">{fmt€(data.kpis.montant_prestataire_total)}</div>
+            <div className="font-mono font-bold text-xl text-blue-600">{fmtEur(data.kpis.montant_prestataire_total)}</div>
           </div>
           <div className="card p-4">
             <div className="text-xs text-text-muted mb-1">Achats régie</div>
-            <div className="font-mono font-bold text-xl text-amber-600">{fmt€(data.kpis.montant_achat_total)}</div>
+            <div className="font-mono font-bold text-xl text-amber-600">{fmtEur(data.kpis.montant_achat_total)}</div>
           </div>
           <div className="card p-4">
             <div className="text-xs text-text-muted mb-1">Heures régie</div>
@@ -331,16 +331,16 @@ export default function BilanInterventionsPage() {
                         {s.nb}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-blue-700">
-                        {s.montant_prestataire > 0 ? fmt€(s.montant_prestataire) : <span className="text-text-muted/40">—</span>}
+                        {s.montant_prestataire > 0 ? fmtEur(s.montant_prestataire) : <span className="text-text-muted/40">—</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-amber-700">
-                        {s.montant_achat > 0 ? fmt€(s.montant_achat) : <span className="text-text-muted/40">—</span>}
+                        {s.montant_achat > 0 ? fmtEur(s.montant_achat) : <span className="text-text-muted/40">—</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-green-700">
                         {s.heures_regie > 0 ? fmtH(s.heures_regie) : <span className="text-text-muted/40">—</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold text-text-main">
-                        {s.total > 0 ? fmt€(s.total) : <span className="text-text-muted">0 €</span>}
+                        {s.total > 0 ? fmtEur(s.total) : <span className="text-text-muted">0 €</span>}
                       </td>
                     </tr>
                   ))}
@@ -354,16 +354,16 @@ export default function BilanInterventionsPage() {
                       {data.kpis.nb_total}
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono font-bold text-blue-700">
-                      {fmt€(data.kpis.montant_prestataire_total)}
+                      {fmtEur(data.kpis.montant_prestataire_total)}
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono font-bold text-amber-700">
-                      {fmt€(data.kpis.montant_achat_total)}
+                      {fmtEur(data.kpis.montant_achat_total)}
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono font-bold text-green-700">
                       {fmtH(data.kpis.heures_regie_total)}
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono font-bold text-text-main">
-                      {fmt€(data.kpis.montant_prestataire_total + data.kpis.montant_achat_total)}
+                      {fmtEur(data.kpis.montant_prestataire_total + data.kpis.montant_achat_total)}
                     </td>
                   </tr>
                 </tfoot>
