@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronUp, Save } from 'lucide-react';
+import { ChevronDown, ChevronUp, Save, Target } from 'lucide-react';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { api } from '../../../utils/api';
@@ -142,6 +142,132 @@ function VoletCard({ volet, niveau, leviers, leviersActifs, onChange, onLeviersC
   );
 }
 
+// ── Section Engagements de mandat ────────────────────────────────────────────
+function SectionEngagements({ operationId, isReadOnly }) {
+  const toast = useToast();
+  const [engagements, setEngagements] = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [saving,      setSaving]      = useState(false);
+  const [dirty,       setDirty]       = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await api.get(`/operations/${operationId}/engagements`);
+      setEngagements(data || []);
+    } catch (err) {
+      toast.error('Erreur engagements : ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [operationId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const toggle = (id) => {
+    setEngagements(prev => prev.map(e =>
+      e.id === id ? { ...e, linked: !e.linked, contribution: !e.linked ? (e.contribution ?? 1) : e.contribution } : e
+    ));
+    setDirty(true);
+  };
+
+  const setContrib = (id, val) => {
+    setEngagements(prev => prev.map(e => e.id === id ? { ...e, contribution: val } : e));
+    setDirty(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const linked = engagements
+        .filter(e => e.linked)
+        .map(e => ({ engagement_id: e.id, contribution: parseFloat(e.contribution) || 1 }));
+      await api.put(`/operations/${operationId}/engagements`, { engagements: linked });
+      toast.success('Engagements enregistrés');
+      setDirty(false);
+    } catch (err) { toast.error(err.message); }
+    finally { setSaving(false); }
+  };
+
+  const linked = engagements.filter(e => e.linked);
+
+  if (loading) return <Skeleton className="h-24 rounded-xl" />;
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-gray-50/50">
+        <div className="flex items-center gap-2">
+          <Target size={15} className="text-primary" />
+          <span className="text-sm font-semibold text-text-main">Engagements de mandat</span>
+          {linked.length > 0 && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+              {linked.length} lié{linked.length > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        {!isReadOnly && dirty && (
+          <button onClick={handleSave} disabled={saving}
+            className="btn-primary text-xs flex items-center gap-1.5 py-1.5 px-3">
+            <Save size={13} />{saving ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        )}
+      </div>
+
+      {engagements.length === 0 ? (
+        <div className="px-5 py-8 text-center text-sm text-text-muted">
+          Aucun engagement de mandat défini. Créez-en depuis le tableau de bord Mandat.
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          {engagements.map(eng => (
+            <div key={eng.id}
+              className={`flex items-start gap-3 px-5 py-3 transition-colors ${eng.linked ? 'bg-blue-50/40' : 'hover:bg-gray-50/60'}`}>
+              <input
+                type="checkbox"
+                checked={eng.linked}
+                onChange={() => !isReadOnly && toggle(eng.id)}
+                disabled={isReadOnly}
+                className="mt-0.5 rounded shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-text-main">{eng.intitule}</div>
+                {eng.description && (
+                  <div className="text-xs text-text-muted mt-0.5">{eng.description}</div>
+                )}
+                {eng.cible && (
+                  <div className="text-xs text-text-muted mt-0.5">
+                    Objectif : <span className="font-mono font-medium">{eng.cible} {eng.unite || ''}</span>
+                    {eng.date_echeance && ` · Échéance : ${new Date(eng.date_echeance + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+                  </div>
+                )}
+              </div>
+              {eng.linked && eng.cible && !isReadOnly && (
+                <div className="shrink-0 flex items-center gap-1.5 ml-2">
+                  <label className="text-xs text-text-muted whitespace-nowrap">Contribution :</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={eng.contribution ?? 1}
+                    onChange={e => setContrib(eng.id, e.target.value)}
+                    className="input text-xs w-20 py-1 text-right"
+                  />
+                  <span className="text-xs text-text-muted">{eng.unite || ''}</span>
+                </div>
+              )}
+              {eng.linked && eng.cible && isReadOnly && (
+                <div className="shrink-0 text-xs font-mono text-blue-700 whitespace-nowrap ml-2">
+                  {eng.contribution ?? 1} {eng.unite || ''}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Composant principal ───────────────────────────────────────────────────────
 export function TabResilience({ op }) {
   const operationId = op.id;
   const { isReadOnly } = useAuth();
@@ -265,6 +391,9 @@ export function TabResilience({ op }) {
           </div>
         )}
       </div>
+
+      {/* Engagements de mandat */}
+      <SectionEngagements operationId={operationId} isReadOnly={isReadOnly} />
     </div>
   );
 }

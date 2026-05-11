@@ -13,6 +13,7 @@ router.put('/leviers-resilience/:levierId', requireStrategicWrite, ctrl.updateLe
 // Par opération (résilience bloquée pour compta)
 router.get('/resilience', blockCompta, ctrl.getResilience);
 router.put('/resilience', blockCompta, requireWriteAccess, ctrl.updateResilience);
+router.get('/engagements', blockCompta, ctrl.getOperationEngagements);
 router.put('/engagements', requireWriteAccess, ctrl.updateOperationEngagements);
 
 module.exports = router;

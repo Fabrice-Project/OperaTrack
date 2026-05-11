@@ -225,6 +225,30 @@ const deleteEngagement = async (req, res) => {
   } catch (err) { error(res, err.message); }
 };
 
+const getOperationEngagements = async (req, res) => {
+  try {
+    const { data: all, error: err } = await supabaseAdmin
+      .from('engagements_mandat')
+      .select('id, intitule, description, cible, unite, date_echeance, ordre')
+      .order('ordre');
+    if (err) throw err;
+
+    const { data: links } = await supabaseAdmin
+      .from('operation_engagements')
+      .select('engagement_id, contribution')
+      .eq('operation_id', req.params.id);
+
+    const linkMap = Object.fromEntries((links || []).map(l => [l.engagement_id, l.contribution]));
+    const result = (all || []).map(eng => ({
+      ...eng,
+      linked: eng.id in linkMap,
+      contribution: linkMap[eng.id] ?? null,
+    }));
+
+    success(res, result);
+  } catch (err) { error(res, err.message); }
+};
+
 const updateOperationEngagements = async (req, res) => {
   try {
     const { engagements } = req.body; // [{ engagement_id, contribution }]
@@ -246,5 +270,5 @@ module.exports = {
   getResilience, updateResilience,
   getMandatDashboard,
   getEngagements, createEngagement, updateEngagement, deleteEngagement,
-  updateOperationEngagements,
+  getOperationEngagements, updateOperationEngagements,
 };
