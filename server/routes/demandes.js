@@ -31,8 +31,15 @@ router.get('/:id/historique', ctrl.getHistorique);
 router.post('/:id/messages', ctrl.addMessage);
 
 // Photos
-router.get('/:id/photos',                                                 ctrl.getPhotos);
-router.post('/:id/photos', uploadMem.single('photo'),                     ctrl.uploadPhoto);
+router.get('/:id/photos', ctrl.getPhotos);
+
+router.post('/:id/photos', (req, res, next) => {
+  uploadMem.single('photo')(req, res, (err) => {
+    if (err) return res.status(400).json({ success: false, data: null, error: err.message });
+    next();
+  });
+}, ctrl.uploadPhoto);
+
 router.delete('/:id/photos/:photoId', requireRole('admin', 'gestionnaire_patrimonial'), ctrl.deletePhoto);
 
 module.exports = router;
