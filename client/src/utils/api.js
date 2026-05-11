@@ -25,6 +25,20 @@ export const api = {
   put: (path, body) => request(path, { method: 'PUT', body: JSON.stringify(body) }),
   delete: (path) => request(path, { method: 'DELETE' }),
 
+  uploadDemandePhoto: async (demandeId, file) => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append('photo', file);
+    const res = await fetch(`${BASE_URL}/demandes/${demandeId}/photos`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData,
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    return json.data;
+  },
+
   uploadImage: async (operationId, file) => {
     const token = getToken();
     const formData = new FormData();

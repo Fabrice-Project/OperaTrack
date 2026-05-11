@@ -1,6 +1,12 @@
 const { supabaseAdmin } = require('../utils/supabase');
 const { success, error } = require('../utils/response');
 
+const BUCKET_DEMANDES = 'demandes-photos';
+
+function slugifyPhoto(str) {
+  return str.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9.]/gi, '_').toLowerCase();
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function auteurInfo(req) {
   return {
@@ -180,4 +186,73 @@ const addMessage = async (req, res) => {
   } catch (err) { error(res, err.message); }
 };
 
-module.exports = { getDemandes, createDemande, updateDemande, getHistorique, addMessage };
+// ── GET /api/v1/demandes/:id/photos ──────────────────────────────────────────
+const getPhotos = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error: err } = await supabaseAdmin
+      .from('demandes_intervention_photos')
+      .select('*')
+      .eq('demande_id', id)
+      .order('created_at');
+    if (err) throw err;
+    success(res, data || []);
+  } catch (err) { error(res, err.message); }
+};
+
+// ── POST /api/v1/demandes/:id/photos  (multipart/form-data, champ "photo") ───
+const uploadPhoto = async (req, res) => {
+  try {
+    if (!req.file) return error(res, 'Fichier manquant', 400);
+    const { id } = req.params;
+    const ts = Date.now();
+    const safeName = slugifyPhoto(req.file.originalname);
+    const storagePath = `demandes/${id}/${ts}_${safeName}`;
+
+    const { error: uploadErr } = await supabaseAdmin.storage
+      .from(BUCKET_DEMANDES)
+      .upload(storagePath, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+    if (uploadErr) return error(res, uploadErr.message);
+
+    const { data: { publicUrl } } = supabaseAdmin.storage
+      .from(BUCKET_DEMANDES)
+      .getPublicUrl(storagePath);
+
+    const { data, error: dbErr } = await supabaseAdmin
+      .from('demandes_intervention_photos')
+      .insert([{
+        demande_id:   id,
+        storage_path: storagePath,
+        url:          publicUrl,
+        nom:          req.file.originalname,
+        taille:       req.file.size,
+        type_mime:    req.file.mimetype,
+      }])
+      .select()
+      .single();
+
+    if (dbErr) {
+      await supabaseAdmin.storage.from(BUCKET_DEMANDES).remove([storagePath]);
+      throw dbErr;
+    }
+    success(res, data, 201);
+  } catch (err) { error(res, err.message); }
+};
+
+// ── DELETE /api/v1/demandes/:id/photos/:photoId ───────────────────────────────
+const deletePhoto = async (req, res) => {
+  try {
+    const { photoId } = req.params;
+    const { data: photo } = await supabaseAdmin
+      .from('demandes_intervention_photos')
+      .select('storage_path')
+      .eq('id', photoId)
+      .single();
+    if (!photo) return error(res, 'Photo introuvable', 404);
+    await supabaseAdmin.storage.from(BUCKET_DEMANDES).remove([photo.storage_path]);
+    await supabaseAdmin.from('demandes_intervention_photos').delete().eq('id', photoId);
+    success(res, { deleted: true });
+  } catch (err) { error(res, err.message); }
+};
+
+module.exports = { getDemandes, createDemande, updateDemande, getHistorique, addMessage, getPhotos, uploadPhoto, deletePhoto };
