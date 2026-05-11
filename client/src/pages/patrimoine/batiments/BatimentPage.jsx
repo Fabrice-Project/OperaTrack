@@ -1268,7 +1268,7 @@ export default function BatimentPage() {
                   Cliquez sur la carte pour placer le bâtiment
                 </p>
               )}
-              <div className="rounded-lg overflow-hidden border border-border" style={{ height: 240 }}>
+              <div className="rounded-lg overflow-hidden border border-border" style={{ height: 240, isolation: 'isolate' }}>
                 <MapContainer
                   key={`${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`}
                   center={mapCenter}
