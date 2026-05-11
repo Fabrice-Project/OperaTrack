@@ -3,7 +3,7 @@ import { AlertTriangle, Clock, CheckCircle, XCircle, PlayCircle, Calendar, Chevr
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell,
 } from 'recharts';
 import { api } from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
@@ -213,6 +213,64 @@ function CustomTooltip({ active, payload, label }) {
   );
 }
 
+// ── Donut avec légende verticale ──────────────────────────────────────────────
+function DonutCard({ title, data, total }) {
+  return (
+    <div className="card p-4">
+      <div className="text-sm font-semibold text-text-main mb-4">{title}</div>
+      <div className="flex items-center gap-4">
+        {/* Donut */}
+        <div className="relative shrink-0" style={{ width: 160, height: 160 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={52}
+                outerRadius={75}
+                strokeWidth={2}
+                stroke="#fff"
+                paddingAngle={2}
+              >
+                {data.map((entry, i) => (
+                  <Cell key={i} fill={entry.fill} />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={(value, name) => [`${value} (${Math.round(value / total * 100)}%)`, name]}
+                contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e7eb' }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+          {/* Total au centre */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <span className="font-mono font-bold text-2xl text-text-main leading-none">{total}</span>
+            <span className="text-[10px] text-text-muted mt-0.5">total</span>
+          </div>
+        </div>
+
+        {/* Légende verticale */}
+        <div className="flex flex-col gap-2 flex-1 min-w-0">
+          {data.map((entry, i) => {
+            const pct = total > 0 ? Math.round(entry.value / total * 100) : 0;
+            return (
+              <div key={i} className="flex items-center gap-2 min-w-0">
+                <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.fill }} />
+                <span className="text-xs text-text-muted truncate flex-1">{entry.name}</span>
+                <span className="text-xs font-mono font-semibold text-text-main shrink-0">{entry.value}</span>
+                <span className="text-[10px] text-text-muted shrink-0 w-8 text-right">{pct}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Onglet Statistiques ───────────────────────────────────────────────────────
 function TabStats({ demandes }) {
   const total = demandes.length;
@@ -320,56 +378,8 @@ function TabStats({ demandes }) {
 
       {/* Répartitions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-        {/* Par statut */}
-        <div className="card p-4">
-          <div className="text-sm font-semibold text-text-main mb-4">Répartition par statut</div>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={dataStatut}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                label={({ name, percent }) => `${name} ${Math.round(percent * 100)}%`}
-                labelLine={false}
-              >
-                {dataStatut.map((entry, i) => (
-                  <Cell key={i} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Par urgence */}
-        <div className="card p-4">
-          <div className="text-sm font-semibold text-text-main mb-4">Répartition par urgence</div>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={dataUrgence}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                label={({ name, percent }) => `${name} ${Math.round(percent * 100)}%`}
-                labelLine={false}
-              >
-                {dataUrgence.map((entry, i) => (
-                  <Cell key={i} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        <DonutCard title="Répartition par statut"  data={dataStatut}  total={total} />
+        <DonutCard title="Répartition par urgence" data={dataUrgence} total={total} />
       </div>
 
       {/* Évolution mensuelle */}
