@@ -1,6 +1,6 @@
 const express = require('express');
 const multer  = require('multer');
-const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticate, requireRole, requirePatrimoineReferentielWrite } = require('../middleware/auth');
 const ctrl = require('../controllers/demandesController');
 
 const router = express.Router();
@@ -21,8 +21,8 @@ router.get('/', ctrl.getDemandes);
 // Création : tous les profils authentifiés (exploitant inclus)
 router.post('/', ctrl.createDemande);
 
-// Mise à jour statut/commentaire : gestionnaire patrimonial et admin uniquement
-router.put('/:id', requireRole('admin', 'gestionnaire_patrimonial'), ctrl.updateDemande);
+// Mise à jour statut/commentaire : admin, gestionnaire patrimonial, chargé op. + habilitation
+router.put('/:id', requirePatrimoineReferentielWrite, ctrl.updateDemande);
 
 // Historique : lecture accessible à tous
 router.get('/:id/historique', ctrl.getHistorique);
