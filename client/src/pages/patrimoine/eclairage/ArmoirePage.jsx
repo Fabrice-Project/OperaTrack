@@ -449,6 +449,7 @@ export default function ArmoirePage() {
             interventions={interventions}
             onRefresh={load}
             onEdit={(iv) => setInterventionModal(iv)}
+            siteLabel={armoire?.intitule || ''}
           />
         </div>}
 

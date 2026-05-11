@@ -810,6 +810,7 @@ export default function TronconPage() {
             interventions={interventions}
             onRefresh={load}
             onEdit={(iv) => setInterventionModal(iv)}
+            siteLabel={troncon?.intitule || ''}
           />
         </div>
       </div>

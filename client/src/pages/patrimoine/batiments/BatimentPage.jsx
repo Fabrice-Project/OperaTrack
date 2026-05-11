@@ -480,6 +480,7 @@ function TabInterventions({ batimentId, batimentNom, equipements }) {
           interventions={interventions}
           onRefresh={load}
           onEdit={(iv) => setInterventionModal(iv)}
+          siteLabel={batiment?.intitule || ''}
         />
       </div>
 

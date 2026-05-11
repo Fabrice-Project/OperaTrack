@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Edit2, Trash2, Building2, User } from 'lucide-react';
+import { Edit2, Trash2, Building2, User, Printer } from 'lucide-react';
 import { api } from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { ConfirmModal } from '../ui/ConfirmModal';
+import { BonInterventionModal } from './BonInterventionModal';
 
 // ── Constantes statut (exportées pour les pages qui en ont besoin) ────────────
 export const STATUT_COLORS = {
@@ -118,7 +119,7 @@ function TotauxAgents({ items }) {
 }
 
 // ── Tableau partagé ───────────────────────────────────────────────────────────
-function InterventionTable({ rows, isPrestataire, isReadOnly, canDelete, statutOverrides, onStatusChanged, onEdit, onDelete }) {
+function InterventionTable({ rows, isPrestataire, isReadOnly, canDelete, statutOverrides, onStatusChanged, onEdit, onDelete, onBon }) {
   if (rows.length === 0) {
     return (
       <div className="p-8 text-center text-text-muted text-sm">
@@ -228,6 +229,16 @@ function InterventionTable({ rows, isPrestataire, isReadOnly, canDelete, statutO
                 {!isReadOnly && (
                   <td className="py-2.5 px-2">
                     <div className="flex items-center gap-0.5">
+                      {/* Bon d'intervention — uniquement pour les agents régie */}
+                      {!isPrestataire && (
+                        <button
+                          onClick={() => onBon(iv)}
+                          className="p-1.5 rounded hover:bg-green-50 text-green-500 transition-colors"
+                          title="Bon d'intervention"
+                        >
+                          <Printer size={13} />
+                        </button>
+                      )}
                       <button
                         onClick={() => onEdit(iv)}
                         className="p-1.5 rounded hover:bg-blue-50 text-blue-400 transition-colors"
@@ -265,13 +276,14 @@ function InterventionTable({ rows, isPrestataire, isReadOnly, canDelete, statutO
  *   onRefresh      {function} rappelé après une suppression (pour recharger)
  *   onEdit         {function} rappelé avec l'intervention à éditer
  */
-export function InterventionList({ interventions, onRefresh, onEdit }) {
+export function InterventionList({ interventions, onRefresh, onEdit, siteLabel = '' }) {
   const toast = useToast();
   const { isReadOnly, canEditPatrimoineCouts } = useAuth();
 
   const [volet, setVolet]               = useState('prestataires');
   const [statutOverrides, setStatutOverrides] = useState({});
   const [deleteTarget, setDeleteTarget]  = useState(null);
+  const [bonTarget, setBonTarget]        = useState(null);
 
   const handleStatusChanged = (ivId, newStatut) => {
     setStatutOverrides(prev => ({ ...prev, [ivId]: newStatut }));
@@ -367,7 +379,16 @@ export function InterventionList({ interventions, onRefresh, onEdit }) {
         onStatusChanged={handleStatusChanged}
         onEdit={onEdit}
         onDelete={setDeleteTarget}
+        onBon={setBonTarget}
       />
+
+      {bonTarget && (
+        <BonInterventionModal
+          intervention={bonTarget}
+          siteLabel={siteLabel}
+          onClose={() => setBonTarget(null)}
+        />
+      )}
 
       <ConfirmModal
         open={!!deleteTarget}

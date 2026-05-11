@@ -484,6 +484,7 @@ export default function PointLumineuxPage() {
             interventions={interventions}
             onRefresh={load}
             onEdit={(iv) => setInterventionModal(iv)}
+            siteLabel={pl?.reference || ''}
           />
           )}
         </div>
