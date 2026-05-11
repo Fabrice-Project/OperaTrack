@@ -54,11 +54,11 @@ function useNouvellesDemandes(enabled) {
 
 export function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
-  const { user, isAdmin, isGestPatrim } = useAuth();
+  const { user, canEditPatrimoineReferentiel } = useAuth();
   const userRole = user?.role || 'directeur';
   const isOpsActive       = location.pathname.startsWith('/operations');
   const isPatrimoineActive = location.pathname.startsWith('/patrimoine');
-  const nbNouvelles = useNouvellesDemandes(isAdmin || isGestPatrim);
+  const nbNouvelles = useNouvellesDemandes(canEditPatrimoineReferentiel);
 
   const navItems = NAV_ITEMS.filter(item =>
     !item.hideForRoles || !item.hideForRoles.includes(userRole)

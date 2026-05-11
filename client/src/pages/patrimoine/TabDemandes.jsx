@@ -201,8 +201,8 @@ function DemandeLine({ demande, onUpdated, canEdit }) {
 // ── Composant principal ───────────────────────────────────────────────────────
 export function TabDemandes() {
   const toast = useToast();
-  const { isAdmin, isGestPatrim } = useAuth();
-  const canEdit = isAdmin || isGestPatrim;
+  const { canEditPatrimoineReferentiel } = useAuth();
+  const canEdit = canEditPatrimoineReferentiel;
 
   const [demandes, setDemandes]       = useState([]);
   const [loading, setLoading]         = useState(true);
