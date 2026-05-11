@@ -271,32 +271,172 @@ function DonutCard({ title, data, total }) {
   );
 }
 
+// ── Génération du rapport imprimable ─────────────────────────────────────────
+function buildPrintHTML({ periodeLabel, collectivite, total, tauxRealisation, nbUrgentes, delaiMoyen, dataStatut, dataUrgence, dataBatiments, dataEvolution }) {
+  const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  const tableRows = (rows) => rows.map(r => `
+    <tr>
+      <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${r.fill || '#6B7280'};margin-right:6px;vertical-align:middle"></span>
+        ${r.name}
+      </td>
+      <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600">${r.value}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;color:#6B7280">${total > 0 ? Math.round(r.value / total * 100) : 0}%</td>
+    </tr>`).join('');
+
+  const evolutionRows = dataEvolution.map(m => `
+    <tr>
+      <td style="padding:4px 8px;border-bottom:1px solid #e5e7eb">${m.label}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600">${m.value}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid #e5e7eb">
+        <div style="background:#2563EB;height:10px;border-radius:3px;width:${Math.max(2, Math.round((m.value / Math.max(...dataEvolution.map(x => x.value), 1)) * 140))}px"></div>
+      </td>
+    </tr>`).join('');
+
+  const batimentRows = dataBatiments.map(b => `
+    <tr>
+      <td style="padding:4px 8px;border-bottom:1px solid #e5e7eb">${b.name}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600">${b.value}</td>
+      <td style="padding:4px 8px;border-bottom:1px solid #e5e7eb">
+        <div style="background:#0D9488;height:10px;border-radius:3px;width:${Math.max(2, Math.round((b.value / Math.max(...dataBatiments.map(x => x.value), 1)) * 140))}px"></div>
+      </td>
+    </tr>`).join('');
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Statistiques demandes d'intervention</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #111; background: #fff; padding: 24px; }
+    h1 { font-size: 16px; font-weight: bold; }
+    h2 { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: .05em; color: #1D4ED8; border-bottom: 1.5px solid #1D4ED8; padding-bottom: 3px; margin-bottom: 8px; margin-top: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #111; padding-bottom: 12px; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 4px; }
+    .kpi { border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px 12px; }
+    .kpi-label { font-size: 9px; color: #6B7280; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+    .kpi-value { font-size: 22px; font-weight: bold; font-family: monospace; }
+    .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th { padding: 5px 8px; background: #F9FAFB; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #6B7280; border-bottom: 1px solid #e5e7eb; }
+    .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e5e7eb; font-size: 9px; color: #9CA3AF; text-align: center; }
+    @media print { body { padding: 10px; } @page { margin: 15mm; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>${collectivite || 'Ville de Denain'}</h1>
+      <div style="font-size:10px;color:#6B7280;margin-top:3px">Gestion du Patrimoine — Demandes d'intervention</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:14px;font-weight:bold;color:#1D4ED8">RAPPORT STATISTIQUE</div>
+      <div style="font-size:10px;color:#6B7280;margin-top:2px">Période : ${periodeLabel}</div>
+      <div style="font-size:10px;color:#6B7280">Édité le ${today}</div>
+    </div>
+  </div>
+
+  <h2>Indicateurs clés</h2>
+  <div class="kpis">
+    <div class="kpi">
+      <div class="kpi-label">Total demandes</div>
+      <div class="kpi-value" style="color:#111">${total}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Taux de réalisation</div>
+      <div class="kpi-value" style="color:#065F46">${tauxRealisation}%</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Urgentes / Critiques</div>
+      <div class="kpi-value" style="color:#B45309">${nbUrgentes}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Délai moyen traitement</div>
+      <div class="kpi-value" style="color:#5B21B6">${delaiMoyen !== null ? delaiMoyen + 'j' : '—'}</div>
+    </div>
+  </div>
+
+  <div class="cols2">
+    <div>
+      <h2>Répartition par statut</h2>
+      <table>
+        <thead><tr><th>Statut</th><th style="text-align:right">Nb</th><th style="text-align:right">%</th></tr></thead>
+        <tbody>${tableRows(dataStatut)}</tbody>
+      </table>
+    </div>
+    <div>
+      <h2>Répartition par urgence</h2>
+      <table>
+        <thead><tr><th>Urgence</th><th style="text-align:right">Nb</th><th style="text-align:right">%</th></tr></thead>
+        <tbody>${tableRows(dataUrgence)}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>Évolution mensuelle</h2>
+  <table>
+    <thead><tr><th>Mois</th><th style="text-align:right">Demandes</th><th style="width:160px">Proportion</th></tr></thead>
+    <tbody>${evolutionRows}</tbody>
+  </table>
+
+  ${dataBatiments.length > 0 ? `
+  <h2>Top bâtiments</h2>
+  <table>
+    <thead><tr><th>Bâtiment</th><th style="text-align:right">Demandes</th><th style="width:160px">Proportion</th></tr></thead>
+    <tbody>${batimentRows}</tbody>
+  </table>` : ''}
+
+  <div class="footer">OpéraTrack — ${collectivite || 'Ville de Denain'} · Rapport généré le ${today}</div>
+</body>
+</html>`;
+}
+
 // ── Onglet Statistiques ───────────────────────────────────────────────────────
 function TabStats({ demandes }) {
-  const total = demandes.length;
+  const [periodeDebut, setPeriodeDebut] = useState('');
+  const [periodeFin,   setPeriodeFin]   = useState('');
+  const [collectivite, setCollectivite] = useState('Ville de Denain');
 
-  // Répartition par statut
+  useEffect(() => {
+    api.get('/settings/config')
+      .then(d => { if (d?.collectivite) setCollectivite(d.collectivite); })
+      .catch(() => {});
+  }, []);
+
+  // Filtrage par période sur created_at
+  const data = useMemo(() =>
+    demandes.filter(d => {
+      if (!d.created_at) return true;
+      const date = d.created_at.slice(0, 10);
+      if (periodeDebut && date < periodeDebut) return false;
+      if (periodeFin   && date > periodeFin)   return false;
+      return true;
+    }),
+  [demandes, periodeDebut, periodeFin]);
+
+  const total = data.length;
+
   const dataStatut = useMemo(() =>
     STATUT_ORDER.map(s => ({
       name:  STATUTS[s].label,
-      value: demandes.filter(d => d.statut === s).length,
+      value: data.filter(d => d.statut === s).length,
       fill:  STATUT_COLORS[s],
     })).filter(d => d.value > 0),
-  [demandes]);
+  [data]);
 
-  // Répartition par urgence
   const dataUrgence = useMemo(() =>
     Object.entries(URGENCES).map(([k, v]) => ({
       name:  v.label,
-      value: demandes.filter(d => d.urgence === k).length,
+      value: data.filter(d => d.urgence === k).length,
       fill:  URGENCE_COLORS[k],
     })).filter(d => d.value > 0),
-  [demandes]);
+  [data]);
 
-  // Top 8 bâtiments
   const dataBatiments = useMemo(() => {
     const counts = {};
-    demandes.forEach(d => {
+    data.forEach(d => {
       const nom = d.batiment?.intitule || 'Non renseigné';
       counts[nom] = (counts[nom] || 0) + 1;
     });
@@ -304,116 +444,167 @@ function TabStats({ demandes }) {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)
       .map(([name, value]) => ({ name, value }));
-  }, [demandes]);
+  }, [data]);
 
-  // Évolution mensuelle (12 derniers mois)
+  // Évolution mensuelle : plage de la période si définie, sinon 12 mois glissants
   const dataEvolution = useMemo(() => {
-    const now = new Date();
+    const start = periodeDebut ? new Date(periodeDebut + 'T00:00:00') : (() => { const d = new Date(); d.setMonth(d.getMonth() - 11); d.setDate(1); return d; })();
+    const end   = periodeFin   ? new Date(periodeFin   + 'T00:00:00') : new Date();
     const months = [];
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+    while (cur <= end) {
       months.push({
-        key:   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-        label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
+        key:   `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`,
+        label: cur.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
         value: 0,
       });
+      cur.setMonth(cur.getMonth() + 1);
     }
-    demandes.forEach(d => {
+    data.forEach(d => {
       if (!d.created_at) return;
       const key = d.created_at.slice(0, 7);
       const m = months.find(m => m.key === key);
       if (m) m.value++;
     });
     return months;
-  }, [demandes]);
+  }, [data, periodeDebut, periodeFin]);
 
-  // Délai moyen de traitement (demandes réalisées : created_at → updated_at)
   const delaiMoyen = useMemo(() => {
-    const realisees = demandes.filter(d => d.statut === 'realisee' && d.created_at && d.updated_at);
+    const realisees = data.filter(d => d.statut === 'realisee' && d.created_at && d.updated_at);
     if (!realisees.length) return null;
-    const totalJours = realisees.reduce((acc, d) => {
-      const diff = (new Date(d.updated_at) - new Date(d.created_at)) / 86400000;
-      return acc + diff;
-    }, 0);
+    const totalJours = realisees.reduce((acc, d) => acc + (new Date(d.updated_at) - new Date(d.created_at)) / 86400000, 0);
     return Math.round(totalJours / realisees.length);
-  }, [demandes]);
+  }, [data]);
 
-  const tauxRealisation = total > 0 ? Math.round((demandes.filter(d => d.statut === 'realisee').length / total) * 100) : 0;
+  const tauxRealisation  = total > 0 ? Math.round(data.filter(d => d.statut === 'realisee').length / total * 100) : 0;
+  const nbUrgentes       = data.filter(d => d.urgence === 'urgente' || d.urgence === 'critique').length;
 
-  if (total === 0) {
-    return (
-      <div className="py-16 text-center text-text-muted text-sm">
-        Aucune donnée à analyser.
-      </div>
-    );
-  }
+  const fmtPeriode = (s) => s ? new Date(s + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : null;
+  const periodeLabel = periodeDebut || periodeFin
+    ? [periodeDebut && `Du ${fmtPeriode(periodeDebut)}`, periodeFin && `au ${fmtPeriode(periodeFin)}`].filter(Boolean).join(' ')
+    : 'Toutes les demandes';
+
+  const handlePrint = () => {
+    const html = buildPrintHTML({ periodeLabel, collectivite, total, tauxRealisation, nbUrgentes, delaiMoyen, dataStatut, dataUrgence, dataBatiments, dataEvolution });
+    const w = window.open('', '_blank', 'width=900,height=750');
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 400);
+  };
 
   return (
     <div className="flex flex-col gap-5">
 
-      {/* KPIs synthèse */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-        <div className="card p-4">
-          <div className="text-xs text-text-muted mb-1">Total demandes</div>
-          <div className="font-mono font-bold text-2xl text-text-main">{total}</div>
+      {/* Barre filtre période + bouton impression */}
+      <div className="card p-3 flex items-center gap-3 flex-wrap">
+        <span className="text-xs font-medium text-text-muted shrink-0">Période :</span>
+        <div className="flex items-center gap-2 flex-wrap flex-1">
+          <input
+            type="date"
+            className="form-input text-sm py-1.5 px-3 w-40"
+            value={periodeDebut}
+            onChange={e => setPeriodeDebut(e.target.value)}
+          />
+          <span className="text-xs text-text-muted">→</span>
+          <input
+            type="date"
+            className="form-input text-sm py-1.5 px-3 w-40"
+            value={periodeFin}
+            onChange={e => setPeriodeFin(e.target.value)}
+          />
+          {(periodeDebut || periodeFin) && (
+            <button
+              onClick={() => { setPeriodeDebut(''); setPeriodeFin(''); }}
+              className="text-xs text-text-muted hover:text-text-main flex items-center gap-1"
+            >
+              <X size={12} /> Réinitialiser
+            </button>
+          )}
+          {(periodeDebut || periodeFin) && (
+            <span className="text-xs text-text-muted italic">{total} demande{total !== 1 ? 's' : ''} sur la période</span>
+          )}
         </div>
-        <div className="card p-4">
-          <div className="text-xs text-text-muted mb-1">Taux de réalisation</div>
-          <div className="font-mono font-bold text-2xl text-green-600">{tauxRealisation} %</div>
-        </div>
-        <div className="card p-4">
-          <div className="text-xs text-text-muted mb-1">Urgentes / Critiques</div>
-          <div className="font-mono font-bold text-2xl text-amber-600">
-            {demandes.filter(d => d.urgence === 'urgente' || d.urgence === 'critique').length}
+        <button
+          onClick={handlePrint}
+          className="btn-primary text-xs flex items-center gap-1.5 shrink-0"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Imprimer / PDF
+        </button>
+      </div>
+
+      {total === 0 ? (
+        <div className="py-16 text-center text-text-muted text-sm">Aucune donnée sur cette période.</div>
+      ) : (
+        <>
+          {/* KPIs */}
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+            <div className="card p-4">
+              <div className="text-xs text-text-muted mb-1">Total demandes</div>
+              <div className="font-mono font-bold text-2xl text-text-main">{total}</div>
+            </div>
+            <div className="card p-4">
+              <div className="text-xs text-text-muted mb-1">Taux de réalisation</div>
+              <div className="font-mono font-bold text-2xl text-green-600">{tauxRealisation} %</div>
+            </div>
+            <div className="card p-4">
+              <div className="text-xs text-text-muted mb-1">Urgentes / Critiques</div>
+              <div className="font-mono font-bold text-2xl text-amber-600">{nbUrgentes}</div>
+            </div>
+            <div className="card p-4">
+              <div className="text-xs text-text-muted mb-1">Délai moyen traitement</div>
+              <div className="font-mono font-bold text-2xl text-purple-600">
+                {delaiMoyen !== null ? `${delaiMoyen}j` : '—'}
+              </div>
+              <div className="text-[10px] text-text-muted mt-0.5">sur demandes réalisées</div>
+            </div>
           </div>
-        </div>
-        <div className="card p-4">
-          <div className="text-xs text-text-muted mb-1">Délai moyen traitement</div>
-          <div className="font-mono font-bold text-2xl text-purple-600">
-            {delaiMoyen !== null ? `${delaiMoyen}j` : '—'}
+
+          {/* Répartitions */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <DonutCard title="Répartition par statut"  data={dataStatut}  total={total} />
+            <DonutCard title="Répartition par urgence" data={dataUrgence} total={total} />
           </div>
-          <div className="text-[10px] text-text-muted mt-0.5">sur demandes réalisées</div>
-        </div>
-      </div>
 
-      {/* Répartitions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <DonutCard title="Répartition par statut"  data={dataStatut}  total={total} />
-        <DonutCard title="Répartition par urgence" data={dataUrgence} total={total} />
-      </div>
+          {/* Évolution mensuelle */}
+          <div className="card p-4">
+            <div className="text-sm font-semibold text-text-main mb-4">
+              Évolution mensuelle des demandes
+              {!(periodeDebut || periodeFin) && <span className="font-normal text-text-muted"> (12 derniers mois)</span>}
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={dataEvolution} barSize={20}>
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={28} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="value" name="Demandes" fill="#2563EB" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
 
-      {/* Évolution mensuelle */}
-      <div className="card p-4">
-        <div className="text-sm font-semibold text-text-main mb-4">Évolution mensuelle des demandes (12 derniers mois)</div>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={dataEvolution} barSize={20}>
-            <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={28} />
-            <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="value" name="Demandes" fill="#2563EB" radius={[3, 3, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Top bâtiments */}
-      {dataBatiments.length > 0 && (
-        <div className="card p-4">
-          <div className="text-sm font-semibold text-text-main mb-4">Bâtiments avec le plus de demandes</div>
-          <ResponsiveContainer width="100%" height={Math.max(180, dataBatiments.length * 36)}>
-            <BarChart data={dataBatiments} layout="vertical" barSize={18}>
-              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={160}
-                tick={{ fontSize: 11 }}
-                tickFormatter={v => v.length > 22 ? v.slice(0, 22) + '…' : v}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="value" name="Demandes" fill="#0D9488" radius={[0, 3, 3, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+          {/* Top bâtiments */}
+          {dataBatiments.length > 0 && (
+            <div className="card p-4">
+              <div className="text-sm font-semibold text-text-main mb-4">Bâtiments avec le plus de demandes</div>
+              <ResponsiveContainer width="100%" height={Math.max(180, dataBatiments.length * 36)}>
+                <BarChart data={dataBatiments} layout="vertical" barSize={18}>
+                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={160}
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={v => v.length > 22 ? v.slice(0, 22) + '…' : v}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="value" name="Demandes" fill="#0D9488" radius={[0, 3, 3, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
