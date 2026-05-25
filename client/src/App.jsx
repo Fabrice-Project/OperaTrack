@@ -17,6 +17,8 @@ import TronconPage from './pages/patrimoine/voirie/TronconPage';
 import MarchePage from './pages/patrimoine/voirie/MarchePage';
 import PointLumineuxPage from './pages/patrimoine/eclairage/PointLumineuxPage';
 import ArmoirePage from './pages/patrimoine/eclairage/ArmoirePage';
+import ArmoireFeuxPage from './pages/patrimoine/feux/ArmoireFeuxPage';
+import FeuTricolorePage from './pages/patrimoine/feux/FeuTricolorePage';
 import BatimentPage from './pages/patrimoine/batiments/BatimentPage';
 import EnergieDashboardPage from './pages/patrimoine/energie/EnergieDashboardPage';
 import RapportEnergiePage from './pages/patrimoine/energie/RapportEnergiePage';
@@ -95,6 +97,9 @@ export default function App() {
             <Route path="/patrimoine/voirie/:id" element={<ProtectedRoute><TronconPage /></ProtectedRoute>} />
             <Route path="/patrimoine/eclairage/armoire/:id" element={<ProtectedRoute><ArmoirePage /></ProtectedRoute>} />
             <Route path="/patrimoine/eclairage/:id" element={<ProtectedRoute><PointLumineuxPage /></ProtectedRoute>} />
+            <Route path="/patrimoine/feux" element={<ProtectedRoute><PatrimoinePage defaultTab="feux" /></ProtectedRoute>} />
+            <Route path="/patrimoine/feux/armoire/:id" element={<ProtectedRoute><ArmoireFeuxPage /></ProtectedRoute>} />
+            <Route path="/patrimoine/feux/:id" element={<ProtectedRoute><FeuTricolorePage /></ProtectedRoute>} />
             <Route path="/patrimoine/batiments/:id" element={<ProtectedRoute><BatimentPage /></ProtectedRoute>} />
             <Route path="/patrimoine/energie" element={<ProtectedRoute><EnergieDashboardPage /></ProtectedRoute>} />
             <Route path="/patrimoine/energie/rapport" element={<ProtectedRoute><RapportEnergiePage /></ProtectedRoute>} />

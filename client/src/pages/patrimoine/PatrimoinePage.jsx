@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
-import { Plus, Route, Lightbulb, Building2, X, FileDown, Sheet, Briefcase, ChevronDown, ChevronRight, RefreshCw, ClipboardList, Edit2, Search, Undo2, Trash2, FileUp, MapPin, Bell } from 'lucide-react';
+import { Plus, Route, Lightbulb, Building2, X, FileDown, Sheet, Briefcase, ChevronDown, ChevronRight, RefreshCw, ClipboardList, Edit2, Search, Undo2, Trash2, FileUp, MapPin, Bell, TrafficCone } from 'lucide-react';
 import { ImportEclairageModal } from './eclairage/ImportEclairageModal';
 import { RapportModal } from '../../components/patrimoine/RapportModal';
 import {
@@ -2125,9 +2125,590 @@ function TabBatiments() {
 }
 
 // Page principale
+// ── Modales création feux tricolores ─────────────────────────────────────────
+
+function CreateArmoireFeuxModal({ onClose, onSaved }) {
+  const toast = useToast();
+  const [form, setForm] = useState({ intitule: '', localisation: '', type_controleur: '', marque: '', annee_pose: '' });
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.post('/patrimoine/feux/armoires', {
+        ...form,
+        annee_pose: form.annee_pose ? parseInt(form.annee_pose) : null,
+      });
+      toast.success('Armoire créée');
+      onSaved();
+    } catch (err) { toast.error(err.message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h3 className="font-heading font-semibold text-text-main">Nouvelle armoire feux</h3>
+          <button onClick={onClose} className="p-1.5 rounded hover:bg-gray-100 text-gray-400"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-3">
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1">Intitulé *</label>
+            <input type="text" value={form.intitule} onChange={e => set('intitule', e.target.value)} className="input w-full" required />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1">Localisation</label>
+            <input type="text" value={form.localisation} onChange={e => set('localisation', e.target.value)} className="input w-full" placeholder="Ex: Carrefour rue de la Paix…" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">Type de contrôleur</label>
+              <input type="text" value={form.type_controleur} onChange={e => set('type_controleur', e.target.value)} className="input w-full" placeholder="UTC, UTMC…" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">Marque</label>
+              <input type="text" value={form.marque} onChange={e => set('marque', e.target.value)} className="input w-full" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1">Année de pose</label>
+            <input type="number" min="1950" max="2030" value={form.annee_pose} onChange={e => set('annee_pose', e.target.value)} className="input w-full" />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="submit" disabled={saving} className="btn-primary">{saving ? 'En cours...' : 'Créer'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function CreateFeuModal({ onClose, onSaved }) {
+  const toast = useToast();
+  const [armoires, setArmoires] = useState([]);
+  const [form, setForm] = useState({ reference: '', armoire_id: '', type_feu: 'vehicule', technologie: 'led', etat_general: 'fonctionnel', nb_feux: 3 });
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  useEffect(() => {
+    api.get('/patrimoine/feux/armoires').then(d => setArmoires(d || [])).catch(() => {});
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.post('/patrimoine/feux/points', {
+        ...form,
+        nb_feux: form.nb_feux ? parseInt(form.nb_feux) : 3,
+      });
+      toast.success('Feu tricolore créé');
+      onSaved();
+    } catch (err) { toast.error(err.message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h3 className="font-heading font-semibold text-text-main">Nouveau feu tricolore</h3>
+          <button onClick={onClose} className="p-1.5 rounded hover:bg-gray-100 text-gray-400"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-3">
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1">Référence *</label>
+            <input type="text" value={form.reference} onChange={e => set('reference', e.target.value)} className="input w-full" required />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1">Armoire dédiée</label>
+            <select value={form.armoire_id} onChange={e => set('armoire_id', e.target.value)} className="input w-full">
+              <option value="">— Sélectionner —</option>
+              {armoires.map(a => <option key={a.id} value={a.id}>{a.intitule}{a.localisation ? ` (${a.localisation})` : ''}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">Type de feu</label>
+              <select value={form.type_feu} onChange={e => set('type_feu', e.target.value)} className="input w-full">
+                <option value="vehicule">Véhicules</option>
+                <option value="pieton">Piétons</option>
+                <option value="velo">Vélos</option>
+                <option value="tram">Tramway</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">Technologie</label>
+              <select value={form.technologie} onChange={e => set('technologie', e.target.value)} className="input w-full">
+                <option value="led">LED</option>
+                <option value="incandescent">Incandescent</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">Nb feux</label>
+              <input type="number" min="1" max="10" value={form.nb_feux} onChange={e => set('nb_feux', e.target.value)} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">État</label>
+              <select value={form.etat_general} onChange={e => set('etat_general', e.target.value)} className="input w-full">
+                {['fonctionnel','defaillant','hors_service','en_travaux'].map(k => (
+                  <option key={k} value={k}>{ETAT_LABELS[k]}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="submit" disabled={saving} className="btn-primary">{saving ? 'En cours...' : 'Créer'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Onglet Feux tricolores ────────────────────────────────────────────────────
+function TabFeux() {
+  const navigate = useNavigate();
+  const toast = useToast();
+  const [subTab, setSubTab] = useState('feux');
+  const [loading, setLoading] = useState(true);
+  const [feux, setFeux]       = useState([]);
+  const [armoires, setArmoires] = useState([]);
+  const [kpis, setKpis]       = useState(null);
+  const [showCreateFeu, setShowCreateFeu]           = useState(false);
+  const [showCreateArmoire, setShowCreateArmoire]   = useState(false);
+  const [armoiresOpen, setArmoiresOpen]             = useState(false);
+  const [armoiresSearch, setArmoiresSearch]         = useState('');
+  const [selectedFeuxId, setSelectedFeuxId]         = useState(null);
+  const [editingEtat, setEditingEtat]               = useState(null);
+  const [savingEtat, setSavingEtat]                 = useState(false);
+  const [tableOpen, setTableOpen]                   = useState(false);
+  const [feuxSearch, setFeuxSearch]                 = useState('');
+  const [feuxEtatFilter, setFeuxEtatFilter]         = useState(null);
+
+  const handleSelectFeu = (id) => {
+    const f = feux.find(ft => ft.id === id);
+    if (!f) return;
+    setSelectedFeuxId(id);
+    setEditingEtat(f.etat_general);
+    setTableOpen(true);
+    setFeuxSearch('');
+    setTimeout(() => {
+      document.getElementById(`feu-row-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+  };
+
+  const handleSaveEtat = async () => {
+    if (!selectedFeuxId) return;
+    const f = feux.find(ft => ft.id === selectedFeuxId);
+    if (!f) return;
+    if (editingEtat === f.etat_general) { setSelectedFeuxId(null); setEditingEtat(null); return; }
+    setSavingEtat(true);
+    try {
+      await api.put(`/patrimoine/feux/points/${selectedFeuxId}`, { etat_general: editingEtat });
+      setFeux(prev => prev.map(ft => ft.id === selectedFeuxId ? { ...ft, etat_general: editingEtat } : ft));
+      toast.success('État mis à jour');
+      setSelectedFeuxId(null);
+      setEditingEtat(null);
+    } catch (err) { toast.error(err.message); }
+    finally { setSavingEtat(false); }
+  };
+
+  const handleCancelEtat = () => { setSelectedFeuxId(null); setEditingEtat(null); };
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [f, arm, k] = await Promise.all([
+        api.get('/patrimoine/feux/points'),
+        api.get('/patrimoine/feux/armoires'),
+        api.get('/patrimoine/feux/kpis'),
+      ]);
+      setFeux(f || []);
+      setArmoires(arm || []);
+      setKpis(k);
+    } catch (err) { toast.error(err.message); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <div className="flex flex-col gap-3"><Skeleton className="h-24 rounded-xl" /><Skeleton className="h-64 rounded-xl" /></div>;
+
+  const statsByEtat = feux.reduce((acc, f) => { acc[f.etat_general] = (acc[f.etat_general] || 0) + 1; return acc; }, {});
+  const barData = Object.entries(statsByEtat).map(([etat, count]) => ({
+    name: ETAT_LABELS[etat] || etat, count, fill: ETAT_COLORS[etat] || '#6B7280',
+  }));
+  const mapCenterFeux = feux.find(f => f.latitude && f.longitude)
+    ? [feux.find(f => f.latitude && f.longitude).latitude, feux.find(f => f.latitude && f.longitude).longitude]
+    : [50.32, 3.39];
+  const nbArmoiresDefaillantes = armoires.filter(a => a.nb_defaillants > 0).length;
+  const mapCenterArm = armoires.find(a => a.latitude && a.longitude)
+    ? [armoires.find(a => a.latitude && a.longitude).latitude, armoires.find(a => a.latitude && a.longitude).longitude]
+    : [50.32, 3.39];
+
+  const SUB_TABS = [
+    { id: 'feux',    label: 'Feux tricolores', count: feux.length },
+    { id: 'armoires', label: 'Armoires',       count: armoires.length },
+  ];
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Sub-tabs */}
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
+        {SUB_TABS.map(t => (
+          <button key={t.id} onClick={() => setSubTab(t.id)}
+            className="px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+            style={subTab === t.id
+              ? { backgroundColor: 'white', color: '#DC2626', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
+              : { color: '#6B7280' }}>
+            {t.label}
+            <span className="ml-1.5 text-xs font-mono opacity-60">{t.count}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── Feux tricolores ── */}
+      {subTab === 'feux' && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <KpiCard label="Feux tricolores" value={kpis?.total || 0} />
+            <KpiCard label="Défaillants / Hors service" value={kpis?.defaillants || 0}
+              color={kpis?.defaillants > 0 ? '#C0392B' : '#1E7E45'}
+              onClick={kpis?.defaillants > 0 ? () => {
+                setTableOpen(true);
+                setFeuxEtatFilter(['defaillant', 'hors_service']);
+                setFeuxSearch('');
+                setTimeout(() => document.getElementById('feux-table-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+              } : undefined}
+            />
+            <KpiCard label="% LED" value={`${kpis?.pctLed || 0}%`} color="#2563EB" />
+            <KpiCard label="Coût prestataires 12m" value={fmtEur(kpis?.cout12Mois)} />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {barData.length > 0 && (
+              <div className="card p-4">
+                <h4 className="font-heading font-semibold text-sm text-text-main mb-3">Répartition par état</h4>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={barData}>
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Bar dataKey="count" name="Feux">
+                      {barData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            <div className="card overflow-hidden" style={{ minHeight: 260 }}>
+              <MapContainer center={mapCenterFeux} zoom={13} style={{ height: 260, width: '100%' }} zoomControl={false}>
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                {feux.filter(f => f.latitude && f.longitude).map(f => (
+                  <CircleMarker key={f.id} center={[f.latitude, f.longitude]}
+                    radius={selectedFeuxId === f.id ? 9 : 6}
+                    pathOptions={{
+                      fillColor:   ETAT_COLORS[f.etat_general] || '#6B7280',
+                      color:       selectedFeuxId === f.id ? '#DC2626' : '#fff',
+                      weight:      selectedFeuxId === f.id ? 3 : 2,
+                      fillOpacity: 0.85,
+                    }}
+                    eventHandlers={{
+                      dblclick: (e) => { L.DomEvent.stop(e); handleSelectFeu(f.id); },
+                    }}
+                  >
+                    <Popup>
+                      <strong>{f.reference}</strong><br />
+                      {ETAT_LABELS[f.etat_general]}<br />
+                      <em style={{ fontSize: 11 }}>Double-cliquer pour modifier l'état</em>
+                    </Popup>
+                  </CircleMarker>
+                ))}
+              </MapContainer>
+            </div>
+          </div>
+
+          <div id="feux-table-card" className="card overflow-hidden">
+            <div
+              className="flex items-center justify-between p-4 border-b border-border cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              onClick={() => setTableOpen(o => !o)}
+            >
+              <div className="flex items-center gap-2">
+                {tableOpen ? <ChevronDown size={15} className="text-text-muted" /> : <ChevronRight size={15} className="text-text-muted" />}
+                <h4 className="font-heading font-semibold text-sm text-text-main">
+                  Feux tricolores
+                  <span className="ml-1.5 font-mono text-xs font-normal text-text-muted">({feux.length})</span>
+                  {!tableOpen && selectedFeuxId && (
+                    <span className="ml-2 text-xs font-normal text-red-600">• 1 sélectionné</span>
+                  )}
+                </h4>
+              </div>
+              <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                <button onClick={() => setShowCreateFeu(true)} className="btn-primary text-xs flex items-center gap-1.5">
+                  <Plus size={13} /> Nouveau
+                </button>
+              </div>
+            </div>
+
+            {tableOpen && (
+              feux.length === 0 ? (
+                <div className="p-8 text-center text-text-muted text-sm">Aucun feu tricolore enregistré.</div>
+              ) : (
+                <>
+                  <div className="px-4 py-2.5 border-b border-border bg-gray-50/60 flex items-center gap-2 flex-wrap">
+                    {feuxEtatFilter && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 shrink-0">
+                        Défaillants / Hors service
+                        <button onClick={() => setFeuxEtatFilter(null)} className="ml-0.5 hover:text-red-900" title="Effacer le filtre">
+                          <X size={10} />
+                        </button>
+                      </span>
+                    )}
+                    <Search size={13} className="text-text-muted shrink-0" />
+                    <input
+                      type="text"
+                      value={feuxSearch}
+                      onChange={e => setFeuxSearch(e.target.value)}
+                      placeholder="Filtrer par référence ou armoire…"
+                      className="text-sm bg-transparent outline-none flex-1 text-text-main placeholder:text-text-muted"
+                    />
+                    {feuxSearch && (
+                      <button onClick={() => setFeuxSearch('')} className="text-text-muted hover:text-text-main">
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 520 }}>
+                    {(() => {
+                      const q = feuxSearch.toLowerCase();
+                      const filtered = feux.filter(f => {
+                        if (feuxEtatFilter && !feuxEtatFilter.includes(f.etat_general)) return false;
+                        if (q && !f.reference?.toLowerCase().includes(q) && !f.armoires_feux?.intitule?.toLowerCase().includes(q)) return false;
+                        return true;
+                      });
+                      return (
+                        <table className="w-full text-left">
+                          <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
+                            <tr className="border-b border-border">
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Référence</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Armoire</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Type</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Techno</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">État</th>
+                              <th className="py-2 px-2 w-16" />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filtered.length === 0 ? (
+                              <tr><td colSpan={6} className="py-6 text-center text-sm text-text-muted">Aucun résultat</td></tr>
+                            ) : filtered.map((f, i) => {
+                              const isSelected = selectedFeuxId === f.id;
+                              return (
+                                <tr
+                                  id={`feu-row-${f.id}`}
+                                  key={f.id}
+                                  className={`border-b border-border transition-colors ${
+                                    isSelected
+                                      ? 'bg-red-50 outline outline-1 outline-red-300'
+                                      : `hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`
+                                  }`}
+                                >
+                                  <td className="py-2.5 px-3 text-sm font-mono font-medium text-text-main">{f.reference}</td>
+                                  <td className="py-2.5 px-3 text-sm text-text-muted">{f.armoires_feux?.intitule || '—'}</td>
+                                  <td className="py-2.5 px-3 text-sm text-text-muted capitalize">{f.type_feu || '—'}</td>
+                                  <td className="py-2.5 px-3 text-sm text-text-muted capitalize">{f.technologie || '—'}</td>
+                                  <td className="py-2.5 px-3">
+                                    {isSelected ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <select
+                                          value={editingEtat ?? f.etat_general}
+                                          onChange={e => setEditingEtat(e.target.value)}
+                                          disabled={savingEtat}
+                                          autoFocus
+                                          className="text-xs border border-red-300 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-red-400"
+                                          onKeyDown={e => { if (e.key === 'Enter') handleSaveEtat(); if (e.key === 'Escape') handleCancelEtat(); }}
+                                        >
+                                          {['fonctionnel', 'defaillant', 'hors_service', 'en_travaux'].map(k => (
+                                            <option key={k} value={k}>{ETAT_LABELS[k]}</option>
+                                          ))}
+                                        </select>
+                                        <button onClick={handleSaveEtat} disabled={savingEtat}
+                                          className="text-xs px-1.5 py-0.5 rounded bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 font-bold"
+                                          title="Enregistrer (Entrée)">✓</button>
+                                        <button onClick={handleCancelEtat} disabled={savingEtat}
+                                          className="text-xs px-1.5 py-0.5 rounded border border-gray-300 text-gray-500 hover:bg-gray-100"
+                                          title="Annuler (Échap)">✗</button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={() => { setSelectedFeuxId(f.id); setEditingEtat(f.etat_general); }}
+                                        className="text-left"
+                                        title="Cliquer pour modifier l'état"
+                                      >
+                                        <EtatBadge etat={f.etat_general} />
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-2">
+                                    <button onClick={() => navigate(`/patrimoine/feux/${f.id}`)} className="btn-secondary text-xs px-2 py-1">Voir</button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
+                  </div>
+                  {(feuxSearch || feuxEtatFilter) && (
+                    <div className="px-4 py-2 text-xs text-text-muted border-t border-border">
+                      {feux.filter(f => {
+                        if (feuxEtatFilter && !feuxEtatFilter.includes(f.etat_general)) return false;
+                        const q = feuxSearch.toLowerCase();
+                        if (q && !f.reference?.toLowerCase().includes(q) && !f.armoires_feux?.intitule?.toLowerCase().includes(q)) return false;
+                        return true;
+                      }).length} résultat(s) sur {feux.length}
+                    </div>
+                  )}
+                </>
+              )
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── Armoires feux ── */}
+      {subTab === 'armoires' && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            <KpiCard label="Armoires" value={armoires.length} />
+            <KpiCard label="Armoires avec défaillants" value={nbArmoiresDefaillantes}
+              color={nbArmoiresDefaillantes > 0 ? '#C0392B' : '#1E7E45'} />
+            <KpiCard label="Feux total" value={armoires.reduce((s, a) => s + (a.nb_feux || 0), 0)} />
+          </div>
+
+          <div className="card overflow-hidden" style={{ minHeight: 260 }}>
+            <MapContainer center={mapCenterArm} zoom={13} style={{ height: 260, width: '100%' }} zoomControl={false}>
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              {armoires.filter(a => a.latitude && a.longitude).map(a => (
+                <CircleMarker key={a.id} center={[a.latitude, a.longitude]} radius={10}
+                  fillColor={a.nb_defaillants > 0 ? '#C0392B' : '#EF4444'} color="#fff" weight={2} fillOpacity={0.85}>
+                  <Popup>
+                    <strong>{a.intitule}</strong>
+                    {a.localisation && <><br />{a.localisation}</>}
+                    <br />{a.nb_feux} feu{a.nb_feux !== 1 ? 'x' : ''}
+                    {a.nb_defaillants > 0 && <><br /><span style={{ color: '#C0392B' }}>{a.nb_defaillants} défaillant{a.nb_defaillants !== 1 ? 's' : ''}</span></>}
+                  </Popup>
+                </CircleMarker>
+              ))}
+            </MapContainer>
+          </div>
+
+          <div className="card overflow-hidden">
+            <div
+              className="flex items-center justify-between p-4 border-b border-border cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              onClick={() => setArmoiresOpen(o => !o)}
+            >
+              <div className="flex items-center gap-2">
+                {armoiresOpen ? <ChevronDown size={15} className="text-text-muted" /> : <ChevronRight size={15} className="text-text-muted" />}
+                <h4 className="font-heading font-semibold text-sm text-text-main">
+                  Armoires <span className="ml-1 font-mono text-xs font-normal text-text-muted">({armoires.length})</span>
+                </h4>
+              </div>
+              <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                <button onClick={() => setShowCreateArmoire(true)} className="btn-primary text-xs flex items-center gap-1.5">
+                  <Plus size={13} /> Nouvelle armoire
+                </button>
+              </div>
+            </div>
+            {armoiresOpen && (
+              armoires.length === 0 ? (
+                <div className="p-8 text-center text-text-muted text-sm">Aucune armoire enregistrée.</div>
+              ) : (
+                <>
+                  <div className="px-4 py-2.5 border-b border-border bg-gray-50/60 flex items-center gap-2">
+                    <Search size={13} className="text-text-muted shrink-0" />
+                    <input type="text" value={armoiresSearch} onChange={e => setArmoiresSearch(e.target.value)}
+                      placeholder="Filtrer par intitulé ou localisation…"
+                      className="text-sm bg-transparent outline-none flex-1 text-text-main placeholder:text-text-muted" />
+                    {armoiresSearch && <button onClick={() => setArmoiresSearch('')} className="text-text-muted hover:text-text-main"><X size={13} /></button>}
+                  </div>
+                  <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 480 }}>
+                    {(() => {
+                      const q = armoiresSearch.toLowerCase();
+                      const filtered = q ? armoires.filter(a => a.intitule?.toLowerCase().includes(q) || a.localisation?.toLowerCase().includes(q)) : armoires;
+                      return (
+                        <table className="w-full text-left">
+                          <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
+                            <tr className="border-b border-border">
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Intitulé</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Localisation</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide text-center">Feux</th>
+                              <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide text-center">Défaillants</th>
+                              <th className="py-2 px-2 w-16" />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filtered.length === 0
+                              ? <tr><td colSpan={5} className="py-6 text-center text-sm text-text-muted">Aucun résultat pour « {armoiresSearch} »</td></tr>
+                              : filtered.map((a, i) => (
+                                <tr key={a.id} className={`border-b border-border hover:bg-gray-50 ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
+                                  <td className="py-2.5 px-3 text-sm font-medium text-text-main">{a.intitule}</td>
+                                  <td className="py-2.5 px-3 text-sm text-text-muted">{a.localisation || '—'}</td>
+                                  <td className="py-2.5 px-3 text-sm font-mono text-text-muted text-center">{a.nb_feux}</td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    {a.nb_defaillants > 0
+                                      ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">{a.nb_defaillants}</span>
+                                      : <span className="text-text-muted text-sm">—</span>}
+                                  </td>
+                                  <td className="py-2.5 px-2">
+                                    <button onClick={() => navigate(`/patrimoine/feux/armoire/${a.id}`)} className="btn-secondary text-xs px-2 py-1">Voir</button>
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
+                  </div>
+                </>
+              )
+            )}
+          </div>
+        </>
+      )}
+
+      {showCreateFeu && (
+        <CreateFeuModal onClose={() => setShowCreateFeu(false)} onSaved={() => { setShowCreateFeu(false); load(); }} />
+      )}
+      {showCreateArmoire && (
+        <CreateArmoireFeuxModal onClose={() => setShowCreateArmoire(false)} onSaved={() => { setShowCreateArmoire(false); load(); }} />
+      )}
+
+      {/* Interventions — thème selon sous-onglet actif */}
+      <div className="mt-2 pt-4 border-t border-border">
+        <SectionInterventionsVoirie
+          theme={subTab === 'armoires' ? 'armoire_feux' : 'feux'}
+        />
+      </div>
+    </div>
+  );
+}
+
 const TABS = [
   { id: 'voirie',    label: 'Voirie',               icon: Route },
   { id: 'eclairage', label: 'Éclairage public',      icon: Lightbulb },
+  { id: 'feux',      label: 'Feux tricolores',       icon: TrafficCone },
   { id: 'batiments', label: 'Bâtiments',             icon: Building2 },
   { id: 'demandes',  label: 'Demandes d\'intervention', icon: Bell },
 ];
@@ -2164,6 +2745,7 @@ export default function PatrimoinePage({ defaultTab = 'voirie' }) {
 
         {tab === 'voirie'    && <TabVoirie />}
         {tab === 'eclairage' && <TabEclairage />}
+        {tab === 'feux'      && <TabFeux />}
         {tab === 'batiments' && <TabBatiments />}
         {tab === 'demandes'  && <TabDemandes />}
       </div>

@@ -52,6 +52,19 @@ router.post('/eclairage/points', requirePatrimoineReferentielWrite, ctrl.createP
 router.get('/eclairage/points/:id', ctrl.getPointLumineux);
 router.put('/eclairage/points/:id', requirePatrimoineReferentielWrite, ctrl.updatePointLumineux);
 
+// ── Feux tricolores — Armoires ────────────────────────────────────────────────
+router.get('/feux/kpis',           ctrl.getFeuxKpis);
+router.get('/feux/armoires',       ctrl.getArmoiresFeux);
+router.post('/feux/armoires',      requirePatrimoineReferentielWrite, ctrl.createArmoireFeux);
+router.get('/feux/armoires/:id',   ctrl.getArmoireFeux);
+router.put('/feux/armoires/:id',   requirePatrimoineReferentielWrite, ctrl.updateArmoireFeux);
+
+// ── Feux tricolores — Points feux ─────────────────────────────────────────────
+router.get('/feux/points',         ctrl.getFeuxTricolores);
+router.post('/feux/points',        requirePatrimoineReferentielWrite, ctrl.createFeuTricolore);
+router.get('/feux/points/:id',     ctrl.getFeuTricolore);
+router.put('/feux/points/:id',     requirePatrimoineReferentielWrite, ctrl.updateFeuTricolore);
+
 // ── Bâtiments ─────────────────────────────────────────────────────────────────
 router.get('/batiments', ctrl.getBatiments);
 router.post('/batiments', requirePatrimoineReferentielWrite, ctrl.createBatiment);

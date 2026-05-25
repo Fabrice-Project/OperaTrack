@@ -1306,6 +1306,159 @@ const getBilanInterventions = async (req, res) => {
   } catch (err) { error(res, err.message); }
 };
 
+// ── FEUX TRICOLORES ───────────────────────────────────────────────────────────
+
+const getArmoiresFeux = async (req, res) => {
+  const [{ data: armoires, error: e1 }, { data: feuxAll }] = await Promise.all([
+    supabaseAdmin.from('armoires_feux').select('*').order('intitule'),
+    fetchAll(() => supabaseAdmin.from('feux_tricolores').select('armoire_id, etat_general')),
+  ]);
+  if (e1) return error(res, e1.message);
+
+  const countMap = {};
+  const defMap   = {};
+  (feuxAll || []).forEach(f => {
+    const aid = f.armoire_id;
+    if (!aid) return;
+    countMap[aid] = (countMap[aid] || 0) + 1;
+    if (f.etat_general === 'defaillant' || f.etat_general === 'hors_service') {
+      defMap[aid] = (defMap[aid] || 0) + 1;
+    }
+  });
+
+  success(res, (armoires || []).map(a => ({
+    ...a,
+    nb_feux:       countMap[a.id] || 0,
+    nb_defaillants: defMap[a.id] || 0,
+  })));
+};
+
+const createArmoireFeux = async (req, res) => {
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('armoires_feux').insert([req.body]).select().single();
+  if (dbErr) return error(res, dbErr.message);
+  success(res, data, 201);
+};
+
+const getArmoireFeux = async (req, res) => {
+  const { id } = req.params;
+  const [{ data: armoire, error: e1 }, { data: feux }, { data: interventions }] = await Promise.all([
+    supabaseAdmin.from('armoires_feux').select('*').eq('id', id).single(),
+    supabaseAdmin.from('feux_tricolores').select('*').eq('armoire_id', id).order('reference'),
+    supabaseAdmin.from('interventions_patrimoine')
+      .select('*').eq('theme', 'armoire_feux').eq('element_id', id)
+      .order('date_signalement', { ascending: false }),
+  ]);
+  if (e1) return error(res, e1.message);
+  success(res, { ...armoire, feux_tricolores: feux || [], interventions: interventions || [] });
+};
+
+const updateArmoireFeux = async (req, res) => {
+  const { id } = req.params;
+  const { intitule, localisation, latitude, longitude, type_controleur, marque, modele, numero_serie, annee_pose, commentaire } = req.body;
+  const payload = {};
+  if (intitule        !== undefined) payload.intitule        = intitule;
+  if (localisation    !== undefined) payload.localisation    = localisation    || null;
+  if (latitude        !== undefined) payload.latitude        = latitude        != null && latitude  !== '' ? parseFloat(latitude)  : null;
+  if (longitude       !== undefined) payload.longitude       = longitude       != null && longitude !== '' ? parseFloat(longitude) : null;
+  if (type_controleur !== undefined) payload.type_controleur = type_controleur || null;
+  if (marque          !== undefined) payload.marque          = marque          || null;
+  if (modele          !== undefined) payload.modele          = modele          || null;
+  if (numero_serie    !== undefined) payload.numero_serie    = numero_serie    || null;
+  if (annee_pose      !== undefined) payload.annee_pose      = annee_pose != null && annee_pose !== '' ? parseInt(annee_pose) : null;
+  if (commentaire     !== undefined) payload.commentaire     = commentaire     || null;
+
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('armoires_feux').update(payload).eq('id', id).select().single();
+  if (dbErr) return error(res, dbErr.message);
+  success(res, data);
+};
+
+const getFeuxTricolores = async (req, res) => {
+  const { data, error: dbErr } = await fetchAll(() =>
+    supabaseAdmin.from('feux_tricolores')
+      .select('*, armoires_feux(intitule, localisation)')
+      .order('reference')
+  );
+  if (dbErr) return error(res, dbErr.message);
+  success(res, data || []);
+};
+
+const createFeuTricolore = async (req, res) => {
+  const { reference, armoire_id, localisation, latitude, longitude, type_feu, nb_feux, technologie, annee_pose, etat_general, commentaire } = req.body;
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('feux_tricolores')
+    .insert([{
+      reference, armoire_id: armoire_id || null, localisation, latitude, longitude,
+      type_feu: type_feu || 'vehicule', nb_feux: nb_feux || 3,
+      technologie: technologie || 'led', annee_pose,
+      etat_general: etat_general || 'fonctionnel', commentaire,
+    }])
+    .select().single();
+  if (dbErr) return error(res, dbErr.message);
+  success(res, data, 201);
+};
+
+const getFeuTricolore = async (req, res) => {
+  const { id } = req.params;
+  const [{ data: feu, error: e1 }, { data: interventions }] = await Promise.all([
+    supabaseAdmin.from('feux_tricolores')
+      .select('*, armoires_feux(intitule, localisation)')
+      .eq('id', id).single(),
+    supabaseAdmin.from('interventions_patrimoine')
+      .select('*').eq('theme', 'feux').eq('element_id', id)
+      .order('date_signalement', { ascending: false }),
+  ]);
+  if (e1) return error(res, e1.message);
+  success(res, { ...feu, interventions: interventions || [] });
+};
+
+const updateFeuTricolore = async (req, res) => {
+  const { id } = req.params;
+  const { reference, armoire_id, localisation, latitude, longitude, type_feu, nb_feux, technologie, annee_pose, etat_general, commentaire } = req.body;
+  const payload = {};
+  if (reference    !== undefined) payload.reference    = reference;
+  if (armoire_id   !== undefined) payload.armoire_id   = armoire_id   || null;
+  if (localisation !== undefined) payload.localisation = localisation || null;
+  if (latitude     !== undefined) payload.latitude     = latitude     != null && latitude  !== '' ? parseFloat(latitude)  : null;
+  if (longitude    !== undefined) payload.longitude    = longitude    != null && longitude !== '' ? parseFloat(longitude) : null;
+  if (type_feu     !== undefined) payload.type_feu     = type_feu     || null;
+  if (nb_feux      !== undefined) payload.nb_feux      = nb_feux      != null && nb_feux !== '' ? parseInt(nb_feux) : null;
+  if (technologie  !== undefined) payload.technologie  = technologie  || null;
+  if (annee_pose   !== undefined) payload.annee_pose   = annee_pose   != null && annee_pose !== '' ? parseInt(annee_pose) : null;
+  if (etat_general !== undefined) payload.etat_general = etat_general;
+  if (commentaire  !== undefined) payload.commentaire  = commentaire  || null;
+
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('feux_tricolores').update(payload).eq('id', id).select().single();
+  if (dbErr) return error(res, dbErr.message);
+  success(res, data);
+};
+
+const getFeuxKpis = async (req, res) => {
+  const { data: feux, error: dbErr } = await fetchAll(() =>
+    supabaseAdmin.from('feux_tricolores').select('etat_general, technologie')
+  );
+  if (dbErr) return error(res, dbErr.message);
+
+  const total       = (feux || []).length;
+  const defaillants = (feux || []).filter(f => f.etat_general === 'defaillant' || f.etat_general === 'hors_service').length;
+  const led         = (feux || []).filter(f => f.technologie === 'led').length;
+  const pctLed      = total > 0 ? Math.round((led / total) * 100) : 0;
+
+  const since = new Date();
+  since.setFullYear(since.getFullYear() - 1);
+  const { data: interventions } = await supabaseAdmin
+    .from('interventions_patrimoine')
+    .select('montant_ht')
+    .eq('theme', 'feux')
+    .eq('type_intervenant', 'prestataire')
+    .gte('date_signalement', since.toISOString().split('T')[0]);
+
+  const cout12Mois = (interventions || []).reduce((acc, i) => acc + (parseFloat(i.montant_ht) || 0), 0);
+  success(res, { total, defaillants, pctLed, cout12Mois });
+};
+
 module.exports = {
   getVoirie, createTroncon, getTroncon, updateTroncon, deleteTroncon,
   getMarches, createMarche, getMarche, updateMarche, deleteMarche,
@@ -1323,4 +1476,7 @@ module.exports = {
   getDashboard,
   getDocsBatiment, createRepertoireBatiment, deleteRepertoireBatiment,
   uploadDocBatiment, downloadDocBatiment, deleteDocBatiment,
+  getArmoiresFeux, createArmoireFeux, getArmoireFeux, updateArmoireFeux,
+  getFeuxTricolores, createFeuTricolore, getFeuTricolore, updateFeuTricolore,
+  getFeuxKpis,
 };

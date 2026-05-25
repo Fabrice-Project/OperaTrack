@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderOpen, BarChart3, Settings, Building2, Route, Lightbulb, Zap, X, Bell, PieChart } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, BarChart3, Settings, Building2, Route, Lightbulb, Zap, X, Bell, PieChart, TrafficCone } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../utils/api';
 
@@ -28,8 +28,9 @@ const NAV_ITEMS = [
 
 const PATRIMOINE_ITEMS = [
   { to: '/patrimoine/voirie',    icon: Route,     label: 'Voirie' },
-  { to: '/patrimoine/eclairage', icon: Lightbulb, label: 'Éclairage public' },
-  { to: '/patrimoine/batiments', icon: Building2, label: 'Bâtiments' },
+  { to: '/patrimoine/eclairage', icon: Lightbulb,     label: 'Éclairage public' },
+  { to: '/patrimoine/feux',      icon: TrafficCone,   label: 'Feux tricolores' },
+  { to: '/patrimoine/batiments', icon: Building2,     label: 'Bâtiments' },
   { to: '/patrimoine/energie',   icon: Zap,       label: 'Tableau de bord énergie' },
   { to: '/patrimoine/demandes',  icon: Bell,      label: 'Demandes d\'intervention' },
   { to: '/patrimoine/bilan',     icon: PieChart,  label: 'Bilan interventions' },
