@@ -5,6 +5,7 @@
  */
 
 import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Download, Upload, CheckCircle, AlertCircle, FileSpreadsheet, Trash2, MapPin } from 'lucide-react';
 
 const BASE_URL = '/api/v1';
@@ -108,7 +109,7 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
 
   // ── Modale de confirmation purge ──────────────────────────────────────────
   if (confirmClear) {
-    return (
+    return createPortal(
       <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
           <div className="flex items-center gap-3">
@@ -138,11 +139,12 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
             </button>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
 
@@ -326,7 +328,8 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
