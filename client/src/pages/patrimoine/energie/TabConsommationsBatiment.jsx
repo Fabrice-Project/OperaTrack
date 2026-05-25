@@ -37,13 +37,30 @@ function periodeLabel(d) {
   const [y, m] = d.split('-');
   return `${MOIS_LABELS[parseInt(m) - 1].substring(0, 3)} ${y}`;
 }
+// Semestre : YYYY-01 → "S1 YYYY", YYYY-07 → "S2 YYYY"
+function fmtSemestre(d) {
+  if (!d) return '—';
+  const [y, m] = d.split('-');
+  return parseInt(m, 10) <= 6 ? `S1 ${y}` : `S2 ${y}`;
+}
+function defaultSemestrePeriode() {
+  const now = new Date();
+  const m = now.getMonth() < 6 ? '01' : '07';
+  return `${now.getFullYear()}-${m}`;
+}
 
 // ── Modale ajout/édition relevé ───────────────────────────────────────────────
 function ReleveModal({ compteur, releve, onClose, onSaved }) {
-  const toast = useToast();
+  const toast  = useToast();
+  const isEau  = compteur.fluide === 'eau';
   const [mode, setMode]   = useState('direct'); // 'direct' | 'index'
+
+  const initPeriode = releve?.periode?.substring(0, 7) || (isEau
+    ? defaultSemestrePeriode()
+    : new Date().toISOString().substring(0, 7));
+
   const [form, setForm]   = useState({
-    periode:        releve?.periode?.substring(0, 7) || new Date().toISOString().substring(0, 7),
+    periode:        initPeriode,
     index_debut:    releve?.index_debut  ?? '',
     index_fin:      releve?.index_fin    ?? '',
     consommation:   releve?.consommation ?? '',
@@ -52,6 +69,11 @@ function ReleveModal({ compteur, releve, onClose, onSaved }) {
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // Pour le sélecteur semestre — dériver année et semestre depuis form.periode
+  const periodeYear = form.periode.split('-')[0] || String(new Date().getFullYear());
+  const periodeSem  = parseInt(form.periode.split('-')[1] || '1', 10) <= 6 ? '01' : '07';
+  const setSemestre = (year, sem) => set('periode', `${year}-${sem}`);
 
   // Calcul auto si mode index
   useEffect(() => {
@@ -95,11 +117,36 @@ function ReleveModal({ compteur, releve, onClose, onSaved }) {
           <button onClick={onClose} className="p-1.5 rounded hover:bg-gray-100 text-gray-400"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-3">
-          <div>
-            <label className="block text-xs font-medium text-text-muted mb-1">Période (mois) *</label>
-            <input type="month" value={form.periode} onChange={e => set('periode', e.target.value)}
-              className="input w-full" required />
-          </div>
+          {isEau ? (
+            /* ── Sélecteur semestriel pour l'eau ── */
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">Année *</label>
+                <select value={periodeYear}
+                  onChange={e => setSemestre(e.target.value, periodeSem)}
+                  className="input w-full">
+                  {Array.from({ length: 7 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">Semestre *</label>
+                <select value={periodeSem}
+                  onChange={e => setSemestre(periodeYear, e.target.value)}
+                  className="input w-full">
+                  <option value="01">S1 — jan. à juin</option>
+                  <option value="07">S2 — juil. à déc.</option>
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">Période (mois) *</label>
+              <input type="month" value={form.periode} onChange={e => set('periode', e.target.value)}
+                className="input w-full" required />
+            </div>
+          )}
 
           {/* Mode saisie */}
           <div className="flex gap-2">
@@ -166,15 +213,16 @@ function ReleveModal({ compteur, releve, onClose, onSaved }) {
 
 // ── Modale import CSV ─────────────────────────────────────────────────────────
 function ImportCSVModal({ compteur, onClose, onSaved }) {
-  const toast = useToast();
+  const toast  = useToast();
+  const isEau  = compteur.fluide === 'eau';
   const [csvText, setCsvText] = useState('');
   const [preview, setPreview] = useState([]);
   const [errors, setErrors]   = useState([]);
   const [importing, setImporting] = useState(false);
 
-  const FORMAT_EXAMPLE = `periode;consommation;montant_ht;numero_facture
-2024-01;14200;2272;FAC-2024-001
-2024-02;13100;2096;FAC-2024-002`;
+  const FORMAT_EXAMPLE = isEau
+    ? `periode;consommation;montant_ht;numero_facture\n2024-01;1450;280;FAC-2024-S1\n2024-07;1620;310;FAC-2024-S2`
+    : `periode;consommation;montant_ht;numero_facture\n2024-01;14200;2272;FAC-2024-001\n2024-02;13100;2096;FAC-2024-002`;
 
   const parseCSV = (text) => {
     const lines = text.trim().split('\n');
@@ -188,7 +236,13 @@ function ImportCSVModal({ compteur, onClose, onSaved }) {
       const vals = line.split(sep).map(v => v.trim().replace(/^"|"$/g, ''));
       const row = {};
       headers.forEach((h, j) => { row[h] = vals[j] || ''; });
-      if (!/^\d{4}-\d{2}$/.test(row.periode || '')) errs.push(`Ligne ${i + 2} : période invalide (format AAAA-MM)`);
+      if (isEau) {
+        if (!/^\d{4}-(01|07)$/.test(row.periode || ''))
+          errs.push(`Ligne ${i + 2} : période invalide (format AAAA-01 pour S1 ou AAAA-07 pour S2)`);
+      } else {
+        if (!/^\d{4}-\d{2}$/.test(row.periode || ''))
+          errs.push(`Ligne ${i + 2} : période invalide (format AAAA-MM)`);
+      }
       if (isNaN(parseFloat(row.consommation))) errs.push(`Ligne ${i + 2} : consommation non numérique`);
       rows.push(row);
     });
@@ -216,7 +270,9 @@ function ImportCSVModal({ compteur, onClose, onSaved }) {
         </div>
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
           <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">
-            <div className="font-semibold mb-1">Format attendu (séparateur ; ou ,) :</div>
+            <div className="font-semibold mb-1">
+              Format attendu (séparateur ; ou ,){isEau ? ' — relevés semestriels eau (01 = S1, 07 = S2)' : ''} :
+            </div>
             <pre className="font-mono whitespace-pre-wrap">{FORMAT_EXAMPLE}</pre>
           </div>
           <div>
@@ -265,6 +321,7 @@ function OngletFluide({ compteur, batimentId, isReadOnly, anneeN }) {
   const [delConfirm, setDelConfirm] = useState(null);
 
   const fluide = FLUIDES.find(f => f.id === compteur.fluide) || {};
+  const isEau  = compteur.fluide === 'eau';
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -286,8 +343,9 @@ function OngletFluide({ compteur, batimentId, isReadOnly, anneeN }) {
     } catch (err) { toast.error(err.message); }
   };
 
-  // Données graphique — 24 mois glissants
+  // Données graphique — 24 mois glissants (non-eau)
   const chartData = (() => {
+    if (isEau) return [];
     const now = new Date();
     const months = [];
     for (let i = 23; i >= 0; i--) {
@@ -301,6 +359,34 @@ function OngletFluide({ compteur, batimentId, isReadOnly, anneeN }) {
       mois: m.label,
       N: map[m.key]?.consommation ?? null,
       N1: map[`${parseInt(m.key.split('-')[0]) - 1}-${m.key.split('-')[1]}`]?.consommation ?? null,
+    }));
+  })();
+
+  // Données graphique semestriel — eau (4 ans * 2 semestres)
+  const chartDataEau = (() => {
+    if (!isEau) return [];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentSem  = now.getMonth() < 6 ? '01' : '07';
+    const currentKey  = `${currentYear}-${currentSem}`;
+    const semestres = [];
+    for (let i = 3; i >= 0; i--) {
+      const y = currentYear - i;
+      ['01', '07'].forEach(s => {
+        const key = `${y}-${s}`;
+        if (key <= currentKey) semestres.push({ key, label: fmtSemestre(key) });
+      });
+    }
+    const map = {};
+    releves.forEach(r => {
+      const [y, m] = r.periode.substring(0, 7).split('-');
+      const sem = parseInt(m, 10) <= 6 ? '01' : '07';
+      map[`${y}-${sem}`] = r;
+    });
+    return semestres.map(s => ({
+      sem:    s.label,
+      conso:  map[s.key]?.consommation ?? null,
+      montant: map[s.key]?.montant_ht  ?? null,
     }));
   })();
 
@@ -362,26 +448,47 @@ function OngletFluide({ compteur, batimentId, isReadOnly, anneeN }) {
         </div>
       </div>
 
-      {/* Graphique 24 mois */}
+      {/* Graphique */}
       {releves.length > 0 && (
         <div className="bg-white border border-border rounded-xl p-4">
-          <div className="text-xs font-semibold text-text-muted mb-3 uppercase tracking-wide">
-            Évolution 24 mois — {compteur.unite}
-          </div>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="mois" tick={{ fontSize: 9 }} interval={2} />
-              <YAxis tick={{ fontSize: 10 }} width={50}
-                tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-              <Tooltip formatter={(v, n) => [fmtNum(v, compteur.unite), n === 'N' ? `${anneeN}` : `${anneeN - 1}`]} />
-              <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => v === 'N' ? anneeN : anneeN - 1} />
-              <Line type="monotone" dataKey="N" stroke={fluide.color || '#1A3A5C'} strokeWidth={2}
-                dot={false} connectNulls={false} name="N" />
-              <Line type="monotone" dataKey="N1" stroke="#CBD5E1" strokeWidth={1.5}
-                strokeDasharray="4 2" dot={false} connectNulls={false} name="N1" />
-            </LineChart>
-          </ResponsiveContainer>
+          {isEau ? (
+            <>
+              <div className="text-xs font-semibold text-text-muted mb-3 uppercase tracking-wide">
+                Évolution semestrielle — {compteur.unite}
+              </div>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={chartDataEau} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="sem" tick={{ fontSize: 9 }} />
+                  <YAxis tick={{ fontSize: 10 }} width={50}
+                    tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
+                  <Tooltip formatter={(v) => [fmtNum(v, compteur.unite), 'Consommation']} />
+                  <Bar dataKey="conso" fill={fluide.color || '#06B6D4'} radius={[3, 3, 0, 0]}
+                    name="Consommation" />
+                </BarChart>
+              </ResponsiveContainer>
+            </>
+          ) : (
+            <>
+              <div className="text-xs font-semibold text-text-muted mb-3 uppercase tracking-wide">
+                Évolution 24 mois — {compteur.unite}
+              </div>
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="mois" tick={{ fontSize: 9 }} interval={2} />
+                  <YAxis tick={{ fontSize: 10 }} width={50}
+                    tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
+                  <Tooltip formatter={(v, n) => [fmtNum(v, compteur.unite), n === 'N' ? `${anneeN}` : `${anneeN - 1}`]} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => v === 'N' ? anneeN : anneeN - 1} />
+                  <Line type="monotone" dataKey="N" stroke={fluide.color || '#1A3A5C'} strokeWidth={2}
+                    dot={false} connectNulls={false} name="N" />
+                  <Line type="monotone" dataKey="N1" stroke="#CBD5E1" strokeWidth={1.5}
+                    strokeDasharray="4 2" dot={false} connectNulls={false} name="N1" />
+                </LineChart>
+              </ResponsiveContainer>
+            </>
+          )}
         </div>
       )}
 
@@ -407,7 +514,9 @@ function OngletFluide({ compteur, batimentId, isReadOnly, anneeN }) {
               </td></tr>
             ) : releves.map(r => (
               <tr key={r.id} className="hover:bg-gray-50">
-                <td className="px-3 py-2 font-medium text-text-main">{fmtDate(r.periode)}</td>
+                <td className="px-3 py-2 font-medium text-text-main">
+                  {isEau ? fmtSemestre(r.periode) : fmtDate(r.periode)}
+                </td>
                 <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.consommation)}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-text-muted">{r.montant_ht ? fmtEur(r.montant_ht) : '—'}</td>
                 <td className="px-3 py-2 text-text-muted text-xs">{r.numero_facture || '—'}</td>
