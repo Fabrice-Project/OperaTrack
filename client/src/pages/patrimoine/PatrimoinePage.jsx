@@ -2736,15 +2736,45 @@ const CATEG_EQUIP_ICONS = {
 
 function CreateEquipementModal({ onClose, onSaved }) {
   const toast = useToast();
-  const [form, setForm] = useState({ intitule: '', categorie: 'autre', localisation: '', etat_general: 'fonctionnel', annee_pose: '' });
+  const [armoires, setArmoires] = useState([]);
+  const [form, setForm] = useState({
+    intitule: '', categorie: 'autre', localisation: '',
+    etat_general: 'fonctionnel', annee_pose: '',
+    armoire_id: '',
+  });
+  const [withCompteurEau, setWithCompteurEau] = useState(false);
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  // Charge la liste des armoires électriques au montage
+  useEffect(() => {
+    api.get('/patrimoine/eclairage/armoires')
+      .then(data => setArmoires(data || []))
+      .catch(() => {});
+  }, []);
+
+  const isValid = form.armoire_id || withCompteurEau;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isValid) {
+      toast.error('Sélectionnez au moins une armoire électrique ou cochez "Compteur d\'eau"');
+      return;
+    }
     setSaving(true);
     try {
-      await api.post('/patrimoine/equipements-divers', form);
+      const body = { ...form, with_compteur_eau: withCompteurEau };
+      const created = await api.post('/patrimoine/equipements-divers', body);
+      // Création automatique du compteur d'eau si demandé
+      if (withCompteurEau && created?.id) {
+        await api.post('/patrimoine/compteurs', {
+          equipement_id: created.id,
+          fluide: 'eau',
+          reference_compteur: '',
+          fournisseur: null,
+          unite: 'm³',
+        });
+      }
       toast.success('Équipement créé');
       onSaved();
     } catch (err) { toast.error(err.message); }
@@ -2791,9 +2821,52 @@ function CreateEquipementModal({ onClose, onSaved }) {
             <input type="number" value={form.annee_pose} onChange={e => set('annee_pose', e.target.value)}
               className="input w-full" placeholder="Ex : 2019" min="1900" max="2099"/>
           </div>
+
+          {/* ── Rattachement obligatoire ── */}
+          <div className="border border-border rounded-xl p-3 flex flex-col gap-2.5 bg-gray-50">
+            <p className="text-xs font-semibold text-text-main">
+              Rattachement <span className="text-red-500">*</span>
+              <span className="font-normal text-text-muted ml-1">(au moins un requis)</span>
+            </p>
+
+            {/* Armoire électrique */}
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                ⚡ Armoire électrique
+              </label>
+              <select value={form.armoire_id} onChange={e => set('armoire_id', e.target.value)}
+                className={`input w-full text-sm ${form.armoire_id ? 'border-primary' : ''}`}>
+                <option value="">— Aucune —</option>
+                {armoires.map(a => (
+                  <option key={a.id} value={a.id}>
+                    {a.intitule}{a.localisation ? ` — ${a.localisation}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Compteur d'eau */}
+            <label className={`flex items-start gap-2.5 cursor-pointer rounded-lg border p-2.5 transition-colors ${
+              withCompteurEau ? 'border-cyan-300 bg-cyan-50' : 'border-border hover:border-cyan-200 bg-white'
+            }`}>
+              <input type="checkbox" checked={withCompteurEau} onChange={e => setWithCompteurEau(e.target.checked)}
+                className="mt-0.5 accent-cyan-600 shrink-0"/>
+              <div>
+                <p className="text-xs font-medium text-text-main">💧 Créer un compteur d'eau</p>
+                <p className="text-xs text-text-muted mt-0.5">Un compteur eau (m³) sera automatiquement créé et lié à cet équipement.</p>
+              </div>
+            </label>
+
+            {!isValid && (
+              <p className="text-xs text-red-500 flex items-center gap-1">
+                ⚠ Sélectionnez une armoire ou cochez le compteur d'eau.
+              </p>
+            )}
+          </div>
+
           <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary text-sm">Annuler</button>
-            <button type="submit" disabled={saving} className="btn-primary text-sm">
+            <button type="submit" disabled={saving || !form.intitule} className="btn-primary text-sm">
               {saving ? 'Création…' : 'Créer'}
             </button>
           </div>
