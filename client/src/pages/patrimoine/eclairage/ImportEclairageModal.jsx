@@ -109,7 +109,7 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
   // ── Modale de confirmation purge ──────────────────────────────────────────
   if (confirmClear) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
@@ -143,7 +143,7 @@ export function ImportEclairageModal({ open, onClose, onSuccess }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
 
         {/* En-tête */}
