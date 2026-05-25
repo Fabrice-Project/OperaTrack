@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { Plus, Route, Lightbulb, Building2, X, FileDown, Sheet, Briefcase, ChevronDown, ChevronRight, RefreshCw, ClipboardList, Edit2, Search, Undo2, Trash2, FileUp, MapPin, Bell, TrafficCone } from 'lucide-react';
 import { ImportEclairageModal } from './eclairage/ImportEclairageModal';
+import { ImportFeuxModal } from './feux/ImportFeuxModal';
 import { RapportModal } from '../../components/patrimoine/RapportModal';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -2285,6 +2286,7 @@ function TabFeux() {
   const [kpis, setKpis]       = useState(null);
   const [showCreateFeu, setShowCreateFeu]           = useState(false);
   const [showCreateArmoire, setShowCreateArmoire]   = useState(false);
+  const [showImportFeux, setShowImportFeux]         = useState(false);
   const [armoiresOpen, setArmoiresOpen]             = useState(false);
   const [armoiresSearch, setArmoiresSearch]         = useState('');
   const [selectedFeuxId, setSelectedFeuxId]         = useState(null);
@@ -2453,6 +2455,9 @@ function TabFeux() {
                 </h4>
               </div>
               <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                <button onClick={() => setShowImportFeux(true)} className="btn-secondary text-xs flex items-center gap-1.5">
+                  <FileUp size={13} /> Importer
+                </button>
                 <button onClick={() => setShowCreateFeu(true)} className="btn-primary text-xs flex items-center gap-1.5">
                   <Plus size={13} /> Nouveau
                 </button>
@@ -2626,6 +2631,9 @@ function TabFeux() {
                 </h4>
               </div>
               <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                <button onClick={() => setShowImportFeux(true)} className="btn-secondary text-xs flex items-center gap-1.5">
+                  <FileUp size={13} /> Importer
+                </button>
                 <button onClick={() => setShowCreateArmoire(true)} className="btn-primary text-xs flex items-center gap-1.5">
                   <Plus size={13} /> Nouvelle armoire
                 </button>
@@ -2694,6 +2702,11 @@ function TabFeux() {
       {showCreateArmoire && (
         <CreateArmoireFeuxModal onClose={() => setShowCreateArmoire(false)} onSaved={() => { setShowCreateArmoire(false); load(); }} />
       )}
+      <ImportFeuxModal
+        open={showImportFeux}
+        onClose={() => setShowImportFeux(false)}
+        onSuccess={() => load()}
+      />
 
       {/* Interventions — thème selon sous-onglet actif */}
       <div className="mt-2 pt-4 border-t border-border">

@@ -1,7 +1,8 @@
 const express = require('express');
 const multer  = require('multer');
 const { authenticate, requireWriteAccess } = require('../middleware/auth');
-const ctrl = require('../controllers/importEclairageController');
+const ctrl     = require('../controllers/importEclairageController');
+const ctrlFeux = require('../controllers/importFeuxController');
 
 const router = express.Router();
 const upload = multer({
@@ -25,5 +26,11 @@ router.post('/eclairage', requireWriteAccess, upload.single('file'), ctrl.import
 
 // Géocodage des armoires sans adresse (max 45 par appel)
 router.post('/eclairage/geocode', requireWriteAccess, ctrl.geocodeArmoires);
+
+// Gabarit feux tricolores
+router.get('/feux/template', ctrlFeux.downloadTemplate);
+
+// Import feux tricolores
+router.post('/feux', requireWriteAccess, upload.single('file'), ctrlFeux.importFeux);
 
 module.exports = router;

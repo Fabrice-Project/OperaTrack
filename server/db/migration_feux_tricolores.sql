@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS feux_tricolores (
   created_at   TIMESTAMPTZ   DEFAULT now()
 );
 
+-- ── Contrainte UNIQUE sur reference (nécessaire pour l'import Excel/upsert) ──
+ALTER TABLE feux_tricolores ADD CONSTRAINT feux_tricolores_reference_key UNIQUE (reference);
+
 -- ── RLS (Row Level Security) — mêmes règles qu'éclairage ─────────────────────
 ALTER TABLE armoires_feux   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feux_tricolores ENABLE ROW LEVEL SECURITY;
