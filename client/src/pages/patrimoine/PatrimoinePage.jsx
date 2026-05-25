@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
-import { Plus, Route, Lightbulb, Building2, X, FileDown, Sheet, Briefcase, ChevronDown, ChevronRight, RefreshCw, ClipboardList, Edit2, Search, Undo2, Trash2, FileUp, MapPin, Bell, TrafficCone } from 'lucide-react';
+import { Plus, Route, Lightbulb, Building2, X, FileDown, Sheet, Briefcase, ChevronDown, ChevronRight, RefreshCw, ClipboardList, Edit2, Search, Undo2, Trash2, FileUp, MapPin, Bell, TrafficCone, Wrench } from 'lucide-react';
 import { ImportEclairageModal } from './eclairage/ImportEclairageModal';
 import { ImportFeuxModal } from './feux/ImportFeuxModal';
 import { RapportModal } from '../../components/patrimoine/RapportModal';
@@ -2718,12 +2718,377 @@ function TabFeux() {
   );
 }
 
+// ── ÉQUIPEMENTS DIVERS ────────────────────────────────────────────────────────
+
+const CATEG_EQUIP_LABELS = {
+  borne_escamotable: 'Borne escamotable',
+  fontaine:          'Fontaine',
+  abri_bus:          'Abri bus',
+  distributeur:      'Distributeur',
+  horloge:           'Horloge',
+  panneau_info:      "Panneau d'information",
+  autre:             'Autre',
+};
+const CATEG_EQUIP_ICONS = {
+  borne_escamotable: '🚧', fontaine: '⛲', abri_bus: '🚌',
+  distributeur: '🏧', horloge: '🕐', panneau_info: '📋', autre: '📦',
+};
+
+function CreateEquipementModal({ onClose, onSaved }) {
+  const toast = useToast();
+  const [form, setForm] = useState({ intitule: '', categorie: 'autre', localisation: '', etat_general: 'fonctionnel', annee_pose: '' });
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.post('/patrimoine/equipements-divers', form);
+      toast.success('Équipement créé');
+      onSaved();
+    } catch (err) { toast.error(err.message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h3 className="font-heading font-semibold text-text-main">Nouvel équipement</h3>
+          <button onClick={onClose} className="p-1.5 rounded hover:bg-gray-100 text-gray-400"><X size={16}/></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3">
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1">Intitulé *</label>
+            <input type="text" value={form.intitule} onChange={e => set('intitule', e.target.value)}
+              className="input w-full" required placeholder="Ex : Borne rue du Moulin"/>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">Catégorie</label>
+              <select value={form.categorie} onChange={e => set('categorie', e.target.value)} className="input w-full">
+                {Object.entries(CATEG_EQUIP_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">État</label>
+              <select value={form.etat_general} onChange={e => set('etat_general', e.target.value)} className="input w-full">
+                <option value="fonctionnel">Fonctionnel</option>
+                <option value="defaillant">Défaillant</option>
+                <option value="hors_service">Hors service</option>
+                <option value="en_travaux">En travaux</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1">Localisation</label>
+            <input type="text" value={form.localisation} onChange={e => set('localisation', e.target.value)}
+              className="input w-full" placeholder="Ex : Place du Général de Gaulle"/>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1">Année de pose</label>
+            <input type="number" value={form.annee_pose} onChange={e => set('annee_pose', e.target.value)}
+              className="input w-full" placeholder="Ex : 2019" min="1900" max="2099"/>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary text-sm">Annuler</button>
+            <button type="submit" disabled={saving} className="btn-primary text-sm">
+              {saving ? 'Création…' : 'Créer'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function TabEquipements() {
+  const navigate = useNavigate();
+  const toast = useToast();
+  const { canEditPatrimoineReferentiel } = useAuth();
+
+  const [equips, setEquips]       = useState([]);
+  const [kpis, setKpis]           = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [tableOpen, setTableOpen] = useState(false);
+  const [search, setSearch]       = useState('');
+  const [categFilter, setCategFilter] = useState(null);
+  const [etatFilter, setEtatFilter]   = useState(null);
+  const [selectedId, setSelectedId]   = useState(null);
+  const [editingEtat, setEditingEtat] = useState(null);
+  const [savingEtat, setSavingEtat]   = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [eq, k] = await Promise.all([
+        api.get('/patrimoine/equipements-divers'),
+        api.get('/patrimoine/equipements-divers/kpis'),
+      ]);
+      setEquips(eq || []);
+      setKpis(k);
+    } catch (err) { toast.error(err.message); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleSaveEtat = async () => {
+    if (!selectedId) return;
+    const eq = equips.find(e => e.id === selectedId);
+    if (!eq || editingEtat === eq.etat_general) { setSelectedId(null); setEditingEtat(null); return; }
+    setSavingEtat(true);
+    try {
+      await api.put(`/patrimoine/equipements-divers/${selectedId}`, { etat_general: editingEtat });
+      setEquips(prev => prev.map(e => e.id === selectedId ? { ...e, etat_general: editingEtat } : e));
+      toast.success('État mis à jour');
+      setSelectedId(null); setEditingEtat(null);
+    } catch (err) { toast.error(err.message); }
+    finally { setSavingEtat(false); }
+  };
+
+  if (loading) return <div className="flex flex-col gap-3"><Skeleton className="h-24 rounded-xl" /><Skeleton className="h-64 rounded-xl" /></div>;
+
+  const statsByEtat = equips.reduce((acc, e) => { acc[e.etat_general] = (acc[e.etat_general] || 0) + 1; return acc; }, {});
+  const barData = Object.entries(statsByEtat).map(([etat, count]) => ({
+    name: ETAT_LABELS[etat] || etat, count, fill: ETAT_COLORS[etat] || '#6B7280',
+  }));
+
+  const mapCenter = equips.find(e => e.latitude && e.longitude)
+    ? [equips.find(e => e.latitude && e.longitude).latitude, equips.find(e => e.latitude && e.longitude).longitude]
+    : [50.32, 3.39];
+
+  const filtered = equips.filter(e => {
+    if (etatFilter && e.etat_general !== etatFilter) return false;
+    if (categFilter && e.categorie !== categFilter) return false;
+    if (search && !(e.intitule?.toLowerCase().includes(search.toLowerCase()) || e.localisation?.toLowerCase().includes(search.toLowerCase()))) return false;
+    return true;
+  });
+
+  return (
+    <div className="flex flex-col gap-4">
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white border border-border rounded-xl p-4">
+          <div className="text-2xl font-bold text-text-main">{kpis?.total ?? equips.length}</div>
+          <div className="text-xs text-text-muted mt-0.5">Équipements</div>
+        </div>
+        <div className="bg-white border border-border rounded-xl p-4">
+          <div className="text-2xl font-bold text-red-600">{kpis?.defaillants ?? 0}</div>
+          <div className="text-xs text-text-muted mt-0.5">Défaillants / hors service</div>
+        </div>
+        <div className="bg-white border border-border rounded-xl p-4">
+          <div className="text-2xl font-bold text-text-main">{Object.keys(kpis?.byCategorie || {}).length}</div>
+          <div className="text-xs text-text-muted mt-0.5">Catégories</div>
+        </div>
+        <div className="bg-white border border-border rounded-xl p-4">
+          <div className="text-xl font-bold text-text-main">
+            {kpis?.cout12Mois != null
+              ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(kpis.cout12Mois)
+              : '—'}
+          </div>
+          <div className="text-xs text-text-muted mt-0.5">Coût interventions 12 mois</div>
+        </div>
+      </div>
+
+      {/* Graphiques + carte */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Répartition par état */}
+        <div className="bg-white border border-border rounded-xl p-4">
+          <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">Répartition par état</h3>
+          {barData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={barData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                <Tooltip formatter={(v) => [v, 'Nb équipements']} />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  {barData.map((entry, i) => (
+                    <Cell key={i} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-32 text-text-muted text-sm">
+              Aucun équipement
+            </div>
+          )}
+        </div>
+
+        {/* Répartition par catégorie */}
+        <div className="bg-white border border-border rounded-xl p-4">
+          <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">Par catégorie</h3>
+          {Object.entries(kpis?.byCategorie || {}).length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {Object.entries(kpis.byCategorie).sort((a, b) => b[1] - a[1]).map(([categ, count]) => (
+                <div key={categ} className="flex items-center gap-2">
+                  <span className="text-base">{CATEG_EQUIP_ICONS[categ] || '📦'}</span>
+                  <div className="flex-1 text-xs text-text-main">{CATEG_EQUIP_LABELS[categ] || categ}</div>
+                  <span className="text-xs font-bold text-text-main tabular-nums">{count}</span>
+                  <div className="w-20 bg-gray-100 rounded-full h-1.5">
+                    <div className="h-1.5 rounded-full bg-purple-400"
+                      style={{ width: `${Math.round((count / equips.length) * 100)}%` }}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-32 text-text-muted text-sm">
+              Aucun équipement
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Carte */}
+      {equips.some(e => e.latitude && e.longitude) && (
+        <div className="bg-white border border-border rounded-xl p-4">
+          <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">Localisation</h3>
+          <div className="rounded-xl overflow-hidden" style={{ height: 300 }}>
+            <MapContainer center={mapCenter} zoom={14} style={{ height: '100%', width: '100%' }}>
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; OpenStreetMap contributors'/>
+              {equips.filter(e => e.latitude && e.longitude).map(e => (
+                <CircleMarker
+                  key={e.id}
+                  center={[parseFloat(e.latitude), parseFloat(e.longitude)]}
+                  radius={8}
+                  pathOptions={{ color: ETAT_COLORS[e.etat_general] || '#7C3AED', fillColor: ETAT_COLORS[e.etat_general] || '#7C3AED', fillOpacity: 0.8 }}
+                  eventHandlers={{ click: () => navigate(`/patrimoine/equipements-divers/${e.id}`) }}
+                >
+                  <Popup>{CATEG_EQUIP_ICONS[e.categorie] || '📦'} {e.intitule}<br/>{e.localisation || ''}</Popup>
+                </CircleMarker>
+              ))}
+            </MapContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Tableau collapsible */}
+      <div className="bg-white border border-border rounded-xl overflow-hidden">
+        <div
+          className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+          onClick={() => setTableOpen(o => !o)}
+        >
+          <div className="flex items-center gap-2">
+            {tableOpen ? <ChevronDown size={16} className="text-text-muted"/> : <ChevronRight size={16} className="text-text-muted"/>}
+            <h3 className="text-sm font-semibold text-text-main">Liste des équipements</h3>
+            <span className="text-xs text-text-muted font-mono bg-gray-100 px-1.5 py-0.5 rounded">{equips.length}</span>
+          </div>
+          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+            {canEditPatrimoineReferentiel && (
+              <button onClick={() => setShowCreate(true)}
+                className="btn-primary text-xs flex items-center gap-1.5">
+                <Plus size={13}/> Nouveau
+              </button>
+            )}
+          </div>
+        </div>
+
+        {tableOpen && (
+          <div className="border-t border-border">
+            {/* Filtres */}
+            <div className="flex items-center gap-2 p-3 border-b border-border flex-wrap">
+              <div className="relative flex-1 min-w-40">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted"/>
+                <input type="text" placeholder="Rechercher…" value={search} onChange={e => setSearch(e.target.value)}
+                  className="input pl-7 py-1.5 text-xs w-full"/>
+              </div>
+              <select value={categFilter || ''} onChange={e => setCategFilter(e.target.value || null)}
+                className="input text-xs py-1.5 px-2">
+                <option value="">Toutes catégories</option>
+                {Object.entries(CATEG_EQUIP_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+              <select value={etatFilter || ''} onChange={e => setEtatFilter(e.target.value || null)}
+                className="input text-xs py-1.5 px-2">
+                <option value="">Tous états</option>
+                <option value="fonctionnel">Fonctionnel</option>
+                <option value="defaillant">Défaillant</option>
+                <option value="hors_service">Hors service</option>
+                <option value="en_travaux">En travaux</option>
+              </select>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-border">
+                  <tr>
+                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-text-muted">Intitulé</th>
+                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-text-muted">Catégorie</th>
+                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-text-muted">Localisation</th>
+                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-text-muted">État</th>
+                    <th className="px-3 py-2.5 w-24"/>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filtered.length === 0 ? (
+                    <tr><td colSpan={5} className="text-center py-8 text-text-muted text-sm">Aucun équipement</td></tr>
+                  ) : filtered.map(e => (
+                    <tr key={e.id} id={`equip-row-${e.id}`}
+                      className={`hover:bg-gray-50 cursor-pointer transition-colors ${selectedId === e.id ? 'bg-purple-50' : ''}`}
+                      onClick={() => { setSelectedId(e.id); setEditingEtat(e.etat_general); }}>
+                      <td className="px-3 py-2.5 font-medium text-text-main">
+                        <span className="mr-1">{CATEG_EQUIP_ICONS[e.categorie] || '📦'}</span>
+                        {e.intitule}
+                      </td>
+                      <td className="px-3 py-2.5 text-text-muted text-xs">{CATEG_EQUIP_LABELS[e.categorie] || e.categorie}</td>
+                      <td className="px-3 py-2.5 text-text-muted text-xs">{e.localisation || '—'}</td>
+                      <td className="px-3 py-2.5">
+                        {selectedId === e.id ? (
+                          <div className="flex items-center gap-1" onClick={ev => ev.stopPropagation()}>
+                            <select value={editingEtat} onChange={ev => setEditingEtat(ev.target.value)}
+                              className="input text-xs py-0.5 px-1.5 w-32">
+                              <option value="fonctionnel">Fonctionnel</option>
+                              <option value="defaillant">Défaillant</option>
+                              <option value="hors_service">Hors service</option>
+                              <option value="en_travaux">En travaux</option>
+                            </select>
+                            <button onClick={handleSaveEtat} disabled={savingEtat}
+                              className="p-1 rounded hover:bg-green-100 text-green-600"><RefreshCw size={11}/></button>
+                            <button onClick={() => { setSelectedId(null); setEditingEtat(null); }}
+                              className="p-1 rounded hover:bg-gray-100 text-text-muted"><Undo2 size={11}/></button>
+                          </div>
+                        ) : (
+                          <EtatBadge etat={e.etat_general}/>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <button
+                          onClick={ev => { ev.stopPropagation(); navigate(`/patrimoine/equipements-divers/${e.id}`); }}
+                          className="text-xs text-primary hover:underline flex items-center gap-0.5">
+                          Détails <ChevronRight size={11}/>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {showCreate && (
+        <CreateEquipementModal
+          onClose={() => setShowCreate(false)}
+          onSaved={() => { setShowCreate(false); load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
 const TABS = [
-  { id: 'voirie',    label: 'Voirie',               icon: Route },
-  { id: 'eclairage', label: 'Éclairage public',      icon: Lightbulb },
-  { id: 'feux',      label: 'Feux tricolores',       icon: TrafficCone },
-  { id: 'batiments', label: 'Bâtiments',             icon: Building2 },
-  { id: 'demandes',  label: 'Demandes d\'intervention', icon: Bell },
+  { id: 'voirie',               label: 'Voirie',                    icon: Route },
+  { id: 'eclairage',            label: 'Éclairage public',          icon: Lightbulb },
+  { id: 'feux',                 label: 'Feux tricolores',           icon: TrafficCone },
+  { id: 'equipements-divers',   label: 'Équipements divers',        icon: Wrench },
+  { id: 'batiments',            label: 'Bâtiments',                 icon: Building2 },
+  { id: 'demandes',             label: "Demandes d'intervention",   icon: Bell },
 ];
 
 export default function PatrimoinePage({ defaultTab = 'voirie' }) {
@@ -2756,11 +3121,12 @@ export default function PatrimoinePage({ defaultTab = 'voirie' }) {
           ))}
         </div>
 
-        {tab === 'voirie'    && <TabVoirie />}
-        {tab === 'eclairage' && <TabEclairage />}
-        {tab === 'feux'      && <TabFeux />}
-        {tab === 'batiments' && <TabBatiments />}
-        {tab === 'demandes'  && <TabDemandes />}
+        {tab === 'voirie'             && <TabVoirie />}
+        {tab === 'eclairage'          && <TabEclairage />}
+        {tab === 'feux'               && <TabFeux />}
+        {tab === 'equipements-divers' && <TabEquipements />}
+        {tab === 'batiments'          && <TabBatiments />}
+        {tab === 'demandes'           && <TabDemandes />}
       </div>
     </AppLayout>
   );

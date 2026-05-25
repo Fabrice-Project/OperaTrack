@@ -65,6 +65,14 @@ router.post('/feux/points',        requirePatrimoineReferentielWrite, ctrl.creat
 router.get('/feux/points/:id',     ctrl.getFeuTricolore);
 router.put('/feux/points/:id',     requirePatrimoineReferentielWrite, ctrl.updateFeuTricolore);
 
+// ── Équipements divers ────────────────────────────────────────────────────────
+router.get('/equipements-divers/kpis',   ctrl.getEquipementsDiversKpis);
+router.get('/equipements-divers',        ctrl.getEquipementsDivers);
+router.post('/equipements-divers',       requirePatrimoineReferentielWrite, ctrl.createEquipementDivers);
+router.get('/equipements-divers/:id',    ctrl.getEquipementDivers);
+router.put('/equipements-divers/:id',    requirePatrimoineReferentielWrite, ctrl.updateEquipementDivers);
+router.get('/equipements-divers/:id/synthese-energie', ectrl.getSyntheseEnergieEquipement);
+
 // ── Bâtiments ─────────────────────────────────────────────────────────────────
 router.get('/batiments', ctrl.getBatiments);
 router.post('/batiments', requirePatrimoineReferentielWrite, ctrl.createBatiment);

@@ -834,19 +834,25 @@ const deleteIntervention = async (req, res) => {
 
 const getVoirieInterventions = async (req, res) => {
   const { theme = 'voirie' } = req.query;
-  const isMobilier  = theme === 'mobilier';
-  const isEclairage = theme === 'eclairage';
-  const isArmoire   = theme === 'armoire';
-  const isBatiment  = theme === 'batiment';
+  const isMobilier          = theme === 'mobilier';
+  const isEclairage         = theme === 'eclairage';
+  const isArmoire           = theme === 'armoire';
+  const isBatiment          = theme === 'batiment';
+  const isFeux              = theme === 'feux';
+  const isArmoireFeux       = theme === 'armoire_feux';
+  const isEquipementDivers  = theme === 'equipement_divers';
   // Les marchés des armoires partagent le domaine 'eclairage'
-  const marcheDomaine = isArmoire ? 'eclairage' : theme;
+  const marcheDomaine = isArmoire ? 'eclairage' : (isArmoireFeux ? 'feux' : theme);
 
   let elementQuery;
-  if (isMobilier)       elementQuery = supabaseAdmin.from('mobilier_urbain').select('id, type, reference_terrain');
-  else if (isEclairage) elementQuery = fetchAll(() => supabaseAdmin.from('points_lumineux').select('id, reference, localisation'));
-  else if (isArmoire)   elementQuery = supabaseAdmin.from('armoires_eclairage').select('id, intitule, localisation');
-  else if (isBatiment)  elementQuery = supabaseAdmin.from('batiments').select('id, intitule');
-  else                  elementQuery = supabaseAdmin.from('troncons_voirie').select('id, intitule');
+  if (isMobilier)         elementQuery = supabaseAdmin.from('mobilier_urbain').select('id, type, reference_terrain');
+  else if (isEclairage)   elementQuery = fetchAll(() => supabaseAdmin.from('points_lumineux').select('id, reference, localisation'));
+  else if (isArmoire)     elementQuery = supabaseAdmin.from('armoires_eclairage').select('id, intitule, localisation');
+  else if (isBatiment)    elementQuery = supabaseAdmin.from('batiments').select('id, intitule');
+  else if (isFeux)        elementQuery = supabaseAdmin.from('feux_tricolores').select('id, reference');
+  else if (isArmoireFeux) elementQuery = supabaseAdmin.from('armoires_feux').select('id, intitule, localisation');
+  else if (isEquipementDivers) elementQuery = supabaseAdmin.from('equipements_divers').select('id, intitule, localisation');
+  else                    elementQuery = supabaseAdmin.from('troncons_voirie').select('id, intitule');
 
   const [{ data: interventions, error: e1 }, { data: elements }, { data: marches }] = await Promise.all([
     supabaseAdmin.from('interventions_patrimoine')
@@ -862,10 +868,13 @@ const getVoirieInterventions = async (req, res) => {
 
   const elementMap = {};
   (elements || []).forEach(e => {
-    if (isMobilier)                       elementMap[e.id] = [e.type, e.reference_terrain].filter(Boolean).join(' — ');
-    else if (isEclairage)                 elementMap[e.id] = [e.reference, e.localisation].filter(Boolean).join(' — ');
-    else if (isArmoire)                   elementMap[e.id] = [e.intitule, e.localisation].filter(Boolean).join(' — ');
-    else                                  elementMap[e.id] = e.intitule;
+    if (isMobilier)           elementMap[e.id] = [e.type, e.reference_terrain].filter(Boolean).join(' — ');
+    else if (isEclairage)     elementMap[e.id] = [e.reference, e.localisation].filter(Boolean).join(' — ');
+    else if (isArmoire)       elementMap[e.id] = [e.intitule, e.localisation].filter(Boolean).join(' — ');
+    else if (isFeux)          elementMap[e.id] = e.reference;
+    else if (isArmoireFeux)   elementMap[e.id] = [e.intitule, e.localisation].filter(Boolean).join(' — ');
+    else if (isEquipementDivers) elementMap[e.id] = [e.intitule, e.localisation].filter(Boolean).join(' — ');
+    else                      elementMap[e.id] = e.intitule;
   });
   const marcheMap = {};
   (marches || []).forEach(m => { marcheMap[m.id] = m; });
@@ -1272,11 +1281,14 @@ const getBilanInterventions = async (req, res) => {
       const uniqueIds = [...new Set(ids)];
       let table, select, labelFn;
 
-      if      (t === 'voirie')    { table = 'troncons_voirie';     select = 'id, intitule';                          labelFn = r => r.intitule; }
-      else if (t === 'eclairage') { table = 'points_lumineux';     select = 'id, reference';                         labelFn = r => r.reference; }
-      else if (t === 'armoire')   { table = 'armoires_eclairage';  select = 'id, intitule';                          labelFn = r => r.intitule; }
-      else if (t === 'batiment')  { table = 'batiments';           select = 'id, intitule';                          labelFn = r => r.intitule; }
-      else if (t === 'mobilier')  { table = 'mobilier_urbain';     select = 'id, type, reference_terrain, troncon_id'; labelFn = r => r.reference_terrain ? `${r.type} — ${r.reference_terrain}` : r.type; }
+      if      (t === 'voirie')           { table = 'troncons_voirie';     select = 'id, intitule';                          labelFn = r => r.intitule; }
+      else if (t === 'eclairage')        { table = 'points_lumineux';     select = 'id, reference';                         labelFn = r => r.reference; }
+      else if (t === 'armoire')          { table = 'armoires_eclairage';  select = 'id, intitule';                          labelFn = r => r.intitule; }
+      else if (t === 'batiment')         { table = 'batiments';           select = 'id, intitule';                          labelFn = r => r.intitule; }
+      else if (t === 'mobilier')         { table = 'mobilier_urbain';     select = 'id, type, reference_terrain, troncon_id'; labelFn = r => r.reference_terrain ? `${r.type} — ${r.reference_terrain}` : r.type; }
+      else if (t === 'feux')             { table = 'feux_tricolores';     select = 'id, reference';                         labelFn = r => r.reference; }
+      else if (t === 'armoire_feux')     { table = 'armoires_feux';       select = 'id, intitule';                          labelFn = r => r.intitule; }
+      else if (t === 'equipement_divers'){ table = 'equipements_divers';  select = 'id, intitule';                          labelFn = r => r.intitule; }
       else return;
 
       const { data } = await supabaseAdmin.from(table).select(select).in('id', uniqueIds);
@@ -1435,6 +1447,117 @@ const updateFeuTricolore = async (req, res) => {
   success(res, data);
 };
 
+// ── ÉQUIPEMENTS DIVERS ────────────────────────────────────────────────────────
+
+const CATEGORIES_EQUIP = ['borne_escamotable','fontaine','abri_bus','distributeur','horloge','panneau_info','autre'];
+const CATEG_LABELS = {
+  borne_escamotable: 'Borne escamotable',
+  fontaine: 'Fontaine',
+  abri_bus: 'Abri bus',
+  distributeur: 'Distributeur',
+  horloge: 'Horloge',
+  panneau_info: 'Panneau d\'information',
+  autre: 'Autre',
+};
+
+const getEquipementsDivers = async (req, res) => {
+  const { data, error: dbErr } = await fetchAll(() =>
+    supabaseAdmin.from('equipements_divers').select('*').order('intitule')
+  );
+  if (dbErr) return error(res, dbErr.message);
+  success(res, data || []);
+};
+
+const createEquipementDivers = async (req, res) => {
+  const {
+    intitule, categorie, localisation, latitude, longitude,
+    etat_general, annee_pose, marque, modele, numero_serie, commentaire,
+  } = req.body;
+  if (!intitule) return error(res, 'intitule est requis', 400);
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('equipements_divers')
+    .insert([{
+      intitule,
+      categorie:    categorie    || 'autre',
+      localisation: localisation || null,
+      latitude:     latitude     ? parseFloat(latitude)  : null,
+      longitude:    longitude    ? parseFloat(longitude) : null,
+      etat_general: etat_general || 'fonctionnel',
+      annee_pose:   annee_pose   ? parseInt(annee_pose)  : null,
+      marque:       marque       || null,
+      modele:       modele       || null,
+      numero_serie: numero_serie || null,
+      commentaire:  commentaire  || null,
+    }])
+    .select().single();
+  if (dbErr) return error(res, dbErr.message);
+  success(res, data, 201);
+};
+
+const getEquipementDivers = async (req, res) => {
+  const { id } = req.params;
+  const [{ data: equip, error: e1 }, { data: interventions }, { data: compteurs }] = await Promise.all([
+    supabaseAdmin.from('equipements_divers').select('*').eq('id', id).single(),
+    supabaseAdmin.from('interventions_patrimoine')
+      .select('*').eq('theme', 'equipement_divers').eq('element_id', id)
+      .order('date_signalement', { ascending: false }),
+    supabaseAdmin.from('compteurs').select('*').eq('equipement_id', id),
+  ]);
+  if (e1) return error(res, e1.message);
+  success(res, { ...equip, interventions: interventions || [], compteurs: compteurs || [] });
+};
+
+const updateEquipementDivers = async (req, res) => {
+  const { id } = req.params;
+  const {
+    intitule, categorie, localisation, latitude, longitude,
+    etat_general, annee_pose, marque, modele, numero_serie, commentaire,
+  } = req.body;
+  const payload = {};
+  if (intitule     !== undefined) payload.intitule     = intitule;
+  if (categorie    !== undefined) payload.categorie    = categorie    || 'autre';
+  if (localisation !== undefined) payload.localisation = localisation || null;
+  if (latitude     !== undefined) payload.latitude     = latitude     != null && latitude  !== '' ? parseFloat(latitude)  : null;
+  if (longitude    !== undefined) payload.longitude    = longitude    != null && longitude !== '' ? parseFloat(longitude) : null;
+  if (etat_general !== undefined) payload.etat_general = etat_general;
+  if (annee_pose   !== undefined) payload.annee_pose   = annee_pose   != null && annee_pose !== '' ? parseInt(annee_pose) : null;
+  if (marque       !== undefined) payload.marque       = marque       || null;
+  if (modele       !== undefined) payload.modele       = modele       || null;
+  if (numero_serie !== undefined) payload.numero_serie = numero_serie || null;
+  if (commentaire  !== undefined) payload.commentaire  = commentaire  || null;
+
+  const { data, error: dbErr } = await supabaseAdmin
+    .from('equipements_divers').update(payload).eq('id', id).select().single();
+  if (dbErr) return error(res, dbErr.message);
+  success(res, data);
+};
+
+const getEquipementsDiversKpis = async (req, res) => {
+  const { data: equips, error: dbErr } = await fetchAll(() =>
+    supabaseAdmin.from('equipements_divers').select('etat_general, categorie')
+  );
+  if (dbErr) return error(res, dbErr.message);
+
+  const total       = (equips || []).length;
+  const defaillants = (equips || []).filter(e => e.etat_general === 'defaillant' || e.etat_general === 'hors_service').length;
+  const byCategorie = (equips || []).reduce((acc, e) => {
+    acc[e.categorie] = (acc[e.categorie] || 0) + 1;
+    return acc;
+  }, {});
+
+  const since = new Date();
+  since.setFullYear(since.getFullYear() - 1);
+  const { data: interventions } = await supabaseAdmin
+    .from('interventions_patrimoine')
+    .select('montant_ht')
+    .eq('theme', 'equipement_divers')
+    .eq('type_intervenant', 'prestataire')
+    .gte('date_signalement', since.toISOString().split('T')[0]);
+
+  const cout12Mois = (interventions || []).reduce((acc, i) => acc + (parseFloat(i.montant_ht) || 0), 0);
+  success(res, { total, defaillants, byCategorie, cout12Mois });
+};
+
 const getFeuxKpis = async (req, res) => {
   const { data: feux, error: dbErr } = await fetchAll(() =>
     supabaseAdmin.from('feux_tricolores').select('etat_general, technologie')
@@ -1479,4 +1602,6 @@ module.exports = {
   getArmoiresFeux, createArmoireFeux, getArmoireFeux, updateArmoireFeux,
   getFeuxTricolores, createFeuTricolore, getFeuTricolore, updateFeuTricolore,
   getFeuxKpis,
+  getEquipementsDivers, createEquipementDivers, getEquipementDivers, updateEquipementDivers,
+  getEquipementsDiversKpis,
 };

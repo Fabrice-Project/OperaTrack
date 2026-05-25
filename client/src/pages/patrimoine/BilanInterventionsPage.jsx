@@ -13,9 +13,10 @@ const THEMES = [
   { value: 'voirie',       label: 'Voirie' },
   { value: 'eclairage',    label: 'Éclairage public' },
   { value: 'armoire',      label: 'Armoires éclairage' },
-  { value: 'feux',         label: 'Feux tricolores' },
-  { value: 'armoire_feux', label: 'Armoires feux' },
-  { value: 'mobilier',     label: 'Mobilier urbain' },
+  { value: 'feux',               label: 'Feux tricolores' },
+  { value: 'armoire_feux',       label: 'Armoires feux' },
+  { value: 'equipement_divers',  label: 'Équipements divers' },
+  { value: 'mobilier',           label: 'Mobilier urbain' },
 ];
 
 const THEME_COLORS = {
@@ -23,9 +24,10 @@ const THEME_COLORS = {
   voirie:       '#10B981',
   eclairage:    '#F59E0B',
   armoire:      '#8B5CF6',
-  feux:         '#EF4444',
-  armoire_feux: '#DC2626',
-  mobilier:     '#6B7280',
+  feux:              '#EF4444',
+  armoire_feux:      '#DC2626',
+  equipement_divers: '#7C3AED',
+  mobilier:          '#6B7280',
 };
 
 const THEME_LABELS = {
@@ -33,9 +35,10 @@ const THEME_LABELS = {
   voirie:       'Voirie',
   eclairage:    'Éclairage',
   armoire:      'Armoire éclairage',
-  feux:         'Feux tricolores',
-  armoire_feux: 'Armoire feux',
-  mobilier:     'Mobilier',
+  feux:              'Feux tricolores',
+  armoire_feux:      'Armoire feux',
+  equipement_divers: 'Équipement divers',
+  mobilier:          'Mobilier',
 };
 
 function fmtEur(v) {
@@ -49,9 +52,10 @@ function siteUrl(s) {
     case 'voirie':       return `/patrimoine/voirie/${s.element_id}`;
     case 'eclairage':    return `/patrimoine/eclairage/${s.element_id}`;
     case 'armoire':      return `/patrimoine/eclairage/armoire/${s.element_id}`;
-    case 'feux':         return `/patrimoine/feux/${s.element_id}`;
-    case 'armoire_feux': return `/patrimoine/feux/armoire/${s.element_id}`;
-    case 'mobilier':     return s.troncon_id ? `/patrimoine/voirie/${s.troncon_id}` : null;
+    case 'feux':              return `/patrimoine/feux/${s.element_id}`;
+    case 'armoire_feux':      return `/patrimoine/feux/armoire/${s.element_id}`;
+    case 'equipement_divers': return `/patrimoine/equipements-divers/${s.element_id}`;
+    case 'mobilier':          return s.troncon_id ? `/patrimoine/voirie/${s.troncon_id}` : null;
     default:             return null;
   }
 }

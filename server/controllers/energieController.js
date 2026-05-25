@@ -48,10 +48,11 @@ function calculTrajectoire(conso_ref, conso_actuelle, annee_ref = 2020) {
 // ── COMPTEURS ─────────────────────────────────────────────────────────────────
 
 const getCompteurs = async (req, res) => {
-  const { batiment_id, armoire_id } = req.query;
+  const { batiment_id, armoire_id, equipement_id } = req.query;
   let q = supabaseAdmin.from('compteurs').select('*').order('fluide');
-  if (batiment_id) q = q.eq('batiment_id', batiment_id);
-  if (armoire_id)  q = q.eq('armoire_id', armoire_id);
+  if (batiment_id)   q = q.eq('batiment_id', batiment_id);
+  if (armoire_id)    q = q.eq('armoire_id', armoire_id);
+  if (equipement_id) q = q.eq('equipement_id', equipement_id);
   const { data, error: dbErr } = await q;
   if (dbErr) return error(res, dbErr.message);
   success(res, data || []);
@@ -59,15 +60,16 @@ const getCompteurs = async (req, res) => {
 
 const createCompteur = async (req, res) => {
   const {
-    batiment_id, armoire_id, fluide, reference_compteur, fournisseur,
+    batiment_id, armoire_id, equipement_id, fluide, reference_compteur, fournisseur,
     unite, actif, date_pose, commentaire,
     annee_reference, conso_reference, objectif_valeur_absolue_2030,
   } = req.body;
   const { data, error: dbErr } = await supabaseAdmin
     .from('compteurs')
     .insert([{
-      batiment_id: batiment_id || null,
-      armoire_id:  armoire_id  || null,
+      batiment_id:   batiment_id   || null,
+      armoire_id:    armoire_id    || null,
+      equipement_id: equipement_id || null,
       fluide, reference_compteur, fournisseur, unite,
       actif: actif !== false,
       date_pose: date_pose || null,
@@ -410,6 +412,57 @@ const getSyntheseEnergieArmoire = async (req, res) => {
   });
 };
 
+// ── SYNTHÈSE ÉNERGIE — ÉQUIPEMENT DIVERS ─────────────────────────────────────
+
+const getSyntheseEnergieEquipement = async (req, res) => {
+  const { id: equipement_id } = req.params;
+  const { annee } = req.query;
+  const anneeN = parseInt(annee) || new Date().getFullYear() - 1;
+
+  const [
+    { data: equip,    error: e1 },
+    { data: compteurs, error: e2 },
+  ] = await Promise.all([
+    supabaseAdmin.from('equipements_divers').select('*').eq('id', equipement_id).single(),
+    supabaseAdmin.from('compteurs').select('*').eq('equipement_id', equipement_id).eq('actif', true),
+  ]);
+  if (e1) return error(res, e1.message);
+
+  const compteurIds = (compteurs || []).map(c => c.id);
+  const [{ data: relevesN }, { data: relevesN1 }] = await Promise.all([
+    compteurIds.length ? supabaseAdmin
+      .from('releves_consommation').select('*')
+      .in('compteur_id', compteurIds)
+      .gte('periode', `${anneeN}-01-01`)
+      .lte('periode', `${anneeN}-12-31`) : { data: [] },
+    compteurIds.length ? supabaseAdmin
+      .from('releves_consommation').select('*')
+      .in('compteur_id', compteurIds)
+      .gte('periode', `${anneeN - 1}-01-01`)
+      .lte('periode', `${anneeN - 1}-12-31`) : { data: [] },
+  ]);
+
+  const totalConsoN  = (relevesN  || []).reduce((s, r) => s + (parseFloat(r.consommation) || 0), 0);
+  const totalConsoN1 = (relevesN1 || []).reduce((s, r) => s + (parseFloat(r.consommation) || 0), 0);
+  const totalMontantN = (relevesN || []).reduce((s, r) => s + (parseFloat(r.montant_ht) || 0), 0);
+
+  const mensuelN  = {};
+  const mensuelN1 = {};
+  (relevesN  || []).forEach(r => { mensuelN[r.periode.substring(0, 7)]  = parseFloat(r.consommation); });
+  (relevesN1 || []).forEach(r => { mensuelN1[r.periode.substring(0, 7)] = parseFloat(r.consommation); });
+
+  success(res, {
+    equip,
+    anneeN,
+    compteurs: compteurs || [],
+    totalConsoN: Math.round(totalConsoN),
+    totalConsoN1: Math.round(totalConsoN1),
+    totalMontantN: Math.round(totalMontantN),
+    mensuelN,
+    mensuelN1,
+  });
+};
+
 // ── DASHBOARD ÉNERGIE GLOBAL ──────────────────────────────────────────────────
 
 const getEnergieDashboard = async (req, res) => {
@@ -689,7 +742,7 @@ const getRapportEnergie = async (req, res) => {
 module.exports = {
   getCompteurs, createCompteur, updateCompteur, deleteCompteur,
   getReleves, createReleve, updateReleve, deleteReleve, importCSV,
-  getSyntheseEnergieBatiment, getSyntheseEnergieArmoire,
+  getSyntheseEnergieBatiment, getSyntheseEnergieArmoire, getSyntheseEnergieEquipement,
   getEnergieDashboard, getRapportEnergie,
   getDecretTertiaire, upsertDecretTertiaire,
   exportOperat,
