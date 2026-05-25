@@ -2736,45 +2736,47 @@ const CATEG_EQUIP_ICONS = {
 
 function CreateEquipementModal({ onClose, onSaved }) {
   const toast = useToast();
-  const [armoires, setArmoires] = useState([]);
   const [form, setForm] = useState({
     intitule: '', categorie: 'autre', localisation: '',
     etat_general: 'fonctionnel', annee_pose: '',
-    armoire_id: '',
   });
-  const [withCompteurEau, setWithCompteurEau] = useState(false);
+  // Compteurs à créer (propres à cet équipement)
+  const [withElec, setWithElec] = useState(false);
+  const [elecRef, setElecRef] = useState('');
+  const [withEau, setWithEau] = useState(false);
+  const [eauRef, setEauRef] = useState('');
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // Charge la liste des armoires électriques au montage
-  useEffect(() => {
-    api.get('/patrimoine/eclairage/armoires')
-      .then(data => setArmoires(data || []))
-      .catch(() => {});
-  }, []);
-
-  const isValid = form.armoire_id || withCompteurEau;
+  const isValid = withElec || withEau;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isValid) {
-      toast.error('Sélectionnez au moins une armoire électrique ou cochez "Compteur d\'eau"');
+      toast.error("Cochez au moins une alimentation électrique ou un compteur d'eau");
       return;
     }
     setSaving(true);
     try {
-      const body = { ...form, with_compteur_eau: withCompteurEau };
-      const created = await api.post('/patrimoine/equipements-divers', body);
-      // Création automatique du compteur d'eau si demandé
-      if (withCompteurEau && created?.id) {
-        await api.post('/patrimoine/compteurs', {
+      const created = await api.post('/patrimoine/equipements-divers', form);
+      const promises = [];
+      if (withElec) {
+        promises.push(api.post('/patrimoine/compteurs', {
+          equipement_id: created.id,
+          fluide: 'electricite',
+          reference_compteur: elecRef || '',
+          unite: 'kWh',
+        }));
+      }
+      if (withEau) {
+        promises.push(api.post('/patrimoine/compteurs', {
           equipement_id: created.id,
           fluide: 'eau',
-          reference_compteur: '',
-          fournisseur: null,
+          reference_compteur: eauRef || '',
           unite: 'm³',
-        });
+        }));
       }
+      await Promise.all(promises);
       toast.success('Équipement créé');
       onSaved();
     } catch (err) { toast.error(err.message); }
@@ -2783,12 +2785,12 @@ function CreateEquipementModal({ onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-border">
           <h3 className="font-heading font-semibold text-text-main">Nouvel équipement</h3>
           <button onClick={onClose} className="p-1.5 rounded hover:bg-gray-100 text-gray-400"><X size={16}/></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 flex flex-col gap-3">
           <div>
             <label className="block text-xs font-medium text-text-muted mb-1">Intitulé *</label>
             <input type="text" value={form.intitule} onChange={e => set('intitule', e.target.value)}
@@ -2822,45 +2824,47 @@ function CreateEquipementModal({ onClose, onSaved }) {
               className="input w-full" placeholder="Ex : 2019" min="1900" max="2099"/>
           </div>
 
-          {/* ── Rattachement obligatoire ── */}
+          {/* ── Alimentation / compteurs dédiés ── */}
           <div className="border border-border rounded-xl p-3 flex flex-col gap-2.5 bg-gray-50">
             <p className="text-xs font-semibold text-text-main">
-              Rattachement <span className="text-red-500">*</span>
-              <span className="font-normal text-text-muted ml-1">(au moins un requis)</span>
+              Alimentation <span className="text-red-500">*</span>
+              <span className="font-normal text-text-muted ml-1">(au moins une requise)</span>
             </p>
 
-            {/* Armoire électrique */}
-            <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">
-                ⚡ Armoire électrique
+            {/* Électricité */}
+            <div className={`rounded-lg border p-2.5 transition-colors ${withElec ? 'border-yellow-300 bg-yellow-50' : 'border-border bg-white'}`}>
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={withElec} onChange={e => setWithElec(e.target.checked)}
+                  className="accent-yellow-500 shrink-0"/>
+                <span className="text-xs font-medium text-text-main">⚡ Alimentation électrique</span>
               </label>
-              <select value={form.armoire_id} onChange={e => set('armoire_id', e.target.value)}
-                className={`input w-full text-sm ${form.armoire_id ? 'border-primary' : ''}`}>
-                <option value="">— Aucune —</option>
-                {armoires.map(a => (
-                  <option key={a.id} value={a.id}>
-                    {a.intitule}{a.localisation ? ` — ${a.localisation}` : ''}
-                  </option>
-                ))}
-              </select>
+              {withElec && (
+                <div className="mt-2 pl-5">
+                  <label className="block text-xs text-text-muted mb-1">Référence compteur</label>
+                  <input type="text" value={elecRef} onChange={e => setElecRef(e.target.value)}
+                    className="input w-full text-xs" placeholder="Ex : PDL-12345"/>
+                </div>
+              )}
             </div>
 
-            {/* Compteur d'eau */}
-            <label className={`flex items-start gap-2.5 cursor-pointer rounded-lg border p-2.5 transition-colors ${
-              withCompteurEau ? 'border-cyan-300 bg-cyan-50' : 'border-border hover:border-cyan-200 bg-white'
-            }`}>
-              <input type="checkbox" checked={withCompteurEau} onChange={e => setWithCompteurEau(e.target.checked)}
-                className="mt-0.5 accent-cyan-600 shrink-0"/>
-              <div>
-                <p className="text-xs font-medium text-text-main">💧 Créer un compteur d'eau</p>
-                <p className="text-xs text-text-muted mt-0.5">Un compteur eau (m³) sera automatiquement créé et lié à cet équipement.</p>
-              </div>
-            </label>
+            {/* Eau */}
+            <div className={`rounded-lg border p-2.5 transition-colors ${withEau ? 'border-cyan-300 bg-cyan-50' : 'border-border bg-white'}`}>
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={withEau} onChange={e => setWithEau(e.target.checked)}
+                  className="accent-cyan-600 shrink-0"/>
+                <span className="text-xs font-medium text-text-main">💧 Compteur d'eau</span>
+              </label>
+              {withEau && (
+                <div className="mt-2 pl-5">
+                  <label className="block text-xs text-text-muted mb-1">Référence compteur</label>
+                  <input type="text" value={eauRef} onChange={e => setEauRef(e.target.value)}
+                    className="input w-full text-xs" placeholder="Ex : EAU-67890"/>
+                </div>
+              )}
+            </div>
 
             {!isValid && (
-              <p className="text-xs text-red-500 flex items-center gap-1">
-                ⚠ Sélectionnez une armoire ou cochez le compteur d'eau.
-              </p>
+              <p className="text-xs text-red-500">⚠ Cochez au moins une alimentation.</p>
             )}
           </div>
 

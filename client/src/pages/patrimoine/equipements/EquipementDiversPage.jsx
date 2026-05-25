@@ -4,8 +4,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Edit2, Save, X, MapPin, Zap } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Edit2, Save, X, MapPin } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents } from 'react-leaflet';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import { InterventionModal } from '../../../components/patrimoine/InterventionModal';
@@ -72,7 +72,6 @@ function DraggableMarker({ position, onMove }) {
 // ── Modale d'édition ─────────────────────────────────────────────────────────
 function EditEquipementModal({ equip, onClose, onSaved }) {
   const toast = useToast();
-  const [armoires, setArmoires] = useState([]);
   const [form, setForm] = useState({
     intitule:     equip.intitule     || '',
     categorie:    equip.categorie    || 'autre',
@@ -83,25 +82,15 @@ function EditEquipementModal({ equip, onClose, onSaved }) {
     modele:       equip.modele       || '',
     numero_serie: equip.numero_serie || '',
     commentaire:  equip.commentaire  || '',
-    armoire_id:   equip.armoire_id   || '',
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-  useEffect(() => {
-    api.get('/patrimoine/eclairage/armoires')
-      .then(data => setArmoires(data || []))
-      .catch(() => {});
-  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.put(`/patrimoine/equipements-divers/${equip.id}`, {
-        ...form,
-        armoire_id: form.armoire_id || null,
-      });
+      await api.put(`/patrimoine/equipements-divers/${equip.id}`, form);
       toast.success('Équipement mis à jour');
       onSaved();
     } catch (err) { toast.error(err.message); }
@@ -161,19 +150,6 @@ function EditEquipementModal({ equip, onClose, onSaved }) {
               <textarea value={form.commentaire} onChange={e => set('commentaire', e.target.value)}
                 className="input w-full resize-none" rows={2}/>
             </div>
-
-            {/* Armoire électrique */}
-            <div className="col-span-2">
-              <label className="block text-xs font-medium text-text-muted mb-1">⚡ Armoire électrique liée</label>
-              <select value={form.armoire_id} onChange={e => set('armoire_id', e.target.value)} className="input w-full">
-                <option value="">— Aucune —</option>
-                {armoires.map(a => (
-                  <option key={a.id} value={a.id}>
-                    {a.intitule}{a.localisation ? ` — ${a.localisation}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={onClose} className="btn-secondary text-sm">Annuler</button>
@@ -225,9 +201,7 @@ export default function EquipementDiversPage() {
     if (!mapPos) return;
     setSavingPos(true);
     try {
-      await api.put(`/patrimoine/equipements-divers/${id}`, {
-        latitude: mapPos[0], longitude: mapPos[1],
-      });
+      await api.put(`/patrimoine/equipements-divers/${id}`, { latitude: mapPos[0], longitude: mapPos[1] });
       toast.success('Position enregistrée');
       setEditingPosition(false);
       load();
@@ -250,10 +224,10 @@ export default function EquipementDiversPage() {
     </AppLayout>
   );
 
-  const mapCenter = mapPos || [50.32, 3.39];
-  const categIcon = CATEG_ICONS[equip.categorie] || '📦';
-  const armoire   = equip.armoires_eclairage || null;
-  const compteurEau = compteurs.find(c => c.fluide === 'eau');
+  const mapCenter  = mapPos || [50.32, 3.39];
+  const categIcon  = CATEG_ICONS[equip.categorie] || '📦';
+  const cptElec    = compteurs.find(c => c.fluide === 'electricite');
+  const cptEau     = compteurs.find(c => c.fluide === 'eau');
 
   const breadcrumbs = [
     { label: 'Gestion Patrimoniale', to: '/patrimoine/equipements-divers' },
@@ -288,30 +262,24 @@ export default function EquipementDiversPage() {
               <div className="flex items-center gap-3 text-sm text-text-muted flex-wrap">
                 <span>{categLabel(equip.categorie)}</span>
                 {equip.localisation && (
-                  <>
-                    <span>·</span>
-                    <span className="flex items-center gap-0.5">
-                      <MapPin size={12}/>{equip.localisation}
-                    </span>
-                  </>
+                  <><span>·</span><span className="flex items-center gap-0.5"><MapPin size={12}/>{equip.localisation}</span></>
                 )}
                 {equip.annee_pose && <><span>·</span><span>Posé en {equip.annee_pose}</span></>}
               </div>
-              {/* Bandeaux rattachement */}
+              {/* Badges alimentation */}
               <div className="flex items-center gap-2 mt-2 flex-wrap">
-                {armoire ? (
-                  <Link to={`/patrimoine/eclairage/armoire/${armoire.id}`}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-50 border border-yellow-200 text-yellow-700 hover:bg-yellow-100 transition-colors">
-                    ⚡ {armoire.intitule}
-                  </Link>
+                {cptElec ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-50 border border-yellow-200 text-yellow-700">
+                    ⚡ Électricité{cptElec.reference_compteur ? ` · ${cptElec.reference_compteur}` : ''}
+                  </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-gray-100 text-text-muted border border-border">
-                    ⚡ Pas d'armoire liée
+                    ⚡ Pas d'alimentation élec.
                   </span>
                 )}
-                {compteurEau ? (
+                {cptEau ? (
                   <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-700">
-                    💧 Compteur eau · {compteurEau.reference_compteur || 'm³'}
+                    💧 Eau{cptEau.reference_compteur ? ` · ${cptEau.reference_compteur}` : ''}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-gray-100 text-text-muted border border-border">
@@ -343,7 +311,7 @@ export default function EquipementDiversPage() {
           ))}
         </div>
 
-        {/* Contenu onglets */}
+        {/* Contenu */}
         {activeTab === 'infos' && (
           <div className="grid grid-cols-2 gap-4">
             <InfoCard label="Catégorie"     value={categLabel(equip.categorie)} />
@@ -358,27 +326,26 @@ export default function EquipementDiversPage() {
                 ? `${parseFloat(equip.latitude).toFixed(5)}, ${parseFloat(equip.longitude).toFixed(5)}`
                 : null
             }/>
-            {/* Armoire liée */}
-            <div className="col-span-2 bg-gray-50 rounded-xl p-3">
-              <div className="text-xs text-text-muted mb-1">⚡ Armoire électrique liée</div>
-              {armoire ? (
-                <Link to={`/patrimoine/eclairage/armoire/${armoire.id}`}
-                  className="text-sm font-medium text-primary hover:underline flex items-center gap-1">
-                  {armoire.intitule}
-                  {armoire.localisation && <span className="text-text-muted font-normal"> — {armoire.localisation}</span>}
-                </Link>
+            {/* Alimentation électrique */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+              <div className="text-xs text-yellow-700 font-medium mb-1">⚡ Alimentation électrique</div>
+              {cptElec ? (
+                <div className="text-sm text-text-main">
+                  <span className="font-medium">{cptElec.reference_compteur || 'Référence non renseignée'}</span>
+                  {cptElec.fournisseur && <span className="text-text-muted"> · {cptElec.fournisseur}</span>}
+                </div>
               ) : (
                 <p className="text-sm text-text-muted">—</p>
               )}
             </div>
             {/* Compteur eau */}
-            <div className="col-span-2 bg-gray-50 rounded-xl p-3">
-              <div className="text-xs text-text-muted mb-1">💧 Compteur d'eau</div>
-              {compteurEau ? (
-                <p className="text-sm font-medium text-text-main">
-                  {compteurEau.reference_compteur || 'Référence non renseignée'}
-                  {compteurEau.fournisseur && <span className="text-text-muted font-normal"> · {compteurEau.fournisseur}</span>}
-                </p>
+            <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3">
+              <div className="text-xs text-cyan-700 font-medium mb-1">💧 Compteur d'eau</div>
+              {cptEau ? (
+                <div className="text-sm text-text-main">
+                  <span className="font-medium">{cptEau.reference_compteur || 'Référence non renseignée'}</span>
+                  {cptEau.fournisseur && <span className="text-text-muted"> · {cptEau.fournisseur}</span>}
+                </div>
               ) : (
                 <p className="text-sm text-text-muted">—</p>
               )}
@@ -396,9 +363,7 @@ export default function EquipementDiversPage() {
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <p className="text-sm text-text-muted">
-                {editingPosition
-                  ? "Cliquez sur la carte pour déplacer l'équipement."
-                  : "Visualisation de la position de l'équipement."}
+                {editingPosition ? "Cliquez sur la carte pour déplacer l'équipement." : "Visualisation de la position."}
               </p>
               {canEditPatrimoineReferentiel && (
                 editingPosition ? (
@@ -422,10 +387,7 @@ export default function EquipementDiversPage() {
               <MapContainer center={mapCenter} zoom={15} style={{ height: '100%', width: '100%' }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution='&copy; OpenStreetMap contributors'/>
-                <DraggableMarker
-                  position={mapPos}
-                  onMove={editingPosition ? (lat, lng) => setMapPos([lat, lng]) : null}
-                />
+                <DraggableMarker position={mapPos} onMove={editingPosition ? (lat, lng) => setMapPos([lat, lng]) : null}/>
               </MapContainer>
             </div>
             {mapPos && (
@@ -451,21 +413,15 @@ export default function EquipementDiversPage() {
               </div>
             )}
             {interventions.length === 0 ? (
-              <div className="text-center py-12 text-text-muted text-sm">
-                Aucune intervention enregistrée.
-              </div>
+              <div className="text-center py-12 text-text-muted text-sm">Aucune intervention enregistrée.</div>
             ) : (
               <div className="flex flex-col gap-2">
                 {interventions.map(iv => (
                   <div key={iv.id} className="border border-border rounded-xl p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <div className="text-sm font-medium text-text-main">
-                          {iv.nature || iv.categorie || '—'}
-                        </div>
-                        <div className="text-xs text-text-muted mt-0.5">
-                          {iv.date_signalement || '—'} · {iv.statut}
-                        </div>
+                        <div className="text-sm font-medium text-text-main">{iv.nature || iv.categorie || '—'}</div>
+                        <div className="text-xs text-text-muted mt-0.5">{iv.date_signalement || '—'} · {iv.statut}</div>
                       </div>
                       {iv.montant_ht && (
                         <div className="text-sm font-semibold text-text-main shrink-0">
@@ -473,9 +429,7 @@ export default function EquipementDiversPage() {
                         </div>
                       )}
                     </div>
-                    {iv.commentaire && (
-                      <p className="text-xs text-text-muted mt-2 leading-relaxed">{iv.commentaire}</p>
-                    )}
+                    {iv.commentaire && <p className="text-xs text-text-muted mt-2 leading-relaxed">{iv.commentaire}</p>}
                   </div>
                 ))}
               </div>
@@ -485,26 +439,16 @@ export default function EquipementDiversPage() {
       </div>
 
       {showEdit && (
-        <EditEquipementModal
-          equip={equip}
-          onClose={() => setShowEdit(false)}
-          onSaved={() => { setShowEdit(false); load(); }}
-        />
+        <EditEquipementModal equip={equip} onClose={() => setShowEdit(false)} onSaved={() => { setShowEdit(false); load(); }}/>
       )}
-
       {showIntervention && (
-        <InterventionModal
-          theme="equipement_divers"
-          elementId={id}
-          onClose={() => setShowIntervention(false)}
-          onSaved={() => { setShowIntervention(false); load(); }}
-        />
+        <InterventionModal theme="equipement_divers" elementId={id}
+          onClose={() => setShowIntervention(false)} onSaved={() => { setShowIntervention(false); load(); }}/>
       )}
     </AppLayout>
   );
 }
 
-// ── Carte info ────────────────────────────────────────────────────────────────
 function InfoCard({ label, value }) {
   return (
     <div className="bg-gray-50 rounded-xl p-3">

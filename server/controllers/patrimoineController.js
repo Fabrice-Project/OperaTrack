@@ -1462,9 +1462,7 @@ const CATEG_LABELS = {
 
 const getEquipementsDivers = async (req, res) => {
   const { data, error: dbErr } = await fetchAll(() =>
-    supabaseAdmin.from('equipements_divers')
-      .select('*, armoires_eclairage(id, intitule, localisation)')
-      .order('intitule')
+    supabaseAdmin.from('equipements_divers').select('*').order('intitule')
   );
   if (dbErr) return error(res, dbErr.message);
   success(res, data || []);
@@ -1474,12 +1472,8 @@ const createEquipementDivers = async (req, res) => {
   const {
     intitule, categorie, localisation, latitude, longitude,
     etat_general, annee_pose, marque, modele, numero_serie, commentaire,
-    armoire_id,
   } = req.body;
   if (!intitule) return error(res, 'intitule est requis', 400);
-  if (!armoire_id && !req.body.with_compteur_eau) {
-    return error(res, 'L\'équipement doit être rattaché à une armoire électrique ou à un compteur d\'eau', 400);
-  }
   const { data, error: dbErr } = await supabaseAdmin
     .from('equipements_divers')
     .insert([{
@@ -1494,7 +1488,6 @@ const createEquipementDivers = async (req, res) => {
       modele:       modele       || null,
       numero_serie: numero_serie || null,
       commentaire:  commentaire  || null,
-      armoire_id:   armoire_id   || null,
     }])
     .select().single();
   if (dbErr) return error(res, dbErr.message);
@@ -1504,13 +1497,11 @@ const createEquipementDivers = async (req, res) => {
 const getEquipementDivers = async (req, res) => {
   const { id } = req.params;
   const [{ data: equip, error: e1 }, { data: interventions }, { data: compteurs }] = await Promise.all([
-    supabaseAdmin.from('equipements_divers')
-      .select('*, armoires_eclairage(id, intitule, localisation)')
-      .eq('id', id).single(),
+    supabaseAdmin.from('equipements_divers').select('*').eq('id', id).single(),
     supabaseAdmin.from('interventions_patrimoine')
       .select('*').eq('theme', 'equipement_divers').eq('element_id', id)
       .order('date_signalement', { ascending: false }),
-    supabaseAdmin.from('compteurs').select('*').eq('equipement_id', id),
+    supabaseAdmin.from('compteurs').select('*').eq('equipement_id', id).order('fluide'),
   ]);
   if (e1) return error(res, e1.message);
   success(res, { ...equip, interventions: interventions || [], compteurs: compteurs || [] });
@@ -1521,7 +1512,6 @@ const updateEquipementDivers = async (req, res) => {
   const {
     intitule, categorie, localisation, latitude, longitude,
     etat_general, annee_pose, marque, modele, numero_serie, commentaire,
-    armoire_id,
   } = req.body;
   const payload = {};
   if (intitule     !== undefined) payload.intitule     = intitule;
@@ -1535,7 +1525,6 @@ const updateEquipementDivers = async (req, res) => {
   if (modele       !== undefined) payload.modele       = modele       || null;
   if (numero_serie !== undefined) payload.numero_serie = numero_serie || null;
   if (commentaire  !== undefined) payload.commentaire  = commentaire  || null;
-  if (armoire_id   !== undefined) payload.armoire_id   = armoire_id   || null;
 
   const { data, error: dbErr } = await supabaseAdmin
     .from('equipements_divers').update(payload).eq('id', id).select().single();
