@@ -2773,7 +2773,7 @@ function CreateEquipementModal({ onClose, onSaved }) {
           equipement_id: created.id,
           fluide: 'eau',
           reference_compteur: eauRef || '',
-          unite: 'm³',
+          unite: 'm3',
         }));
       }
       await Promise.all(promises);

@@ -170,7 +170,7 @@ function CreateCompteurModal({ equipementId, onClose, onSaved }) {
 
   // Mise à jour auto de l'unité selon le fluide
   const handleFluide = (v) => {
-    const uniteMap = { electricite: 'kWh', gaz: 'm³', eau: 'm³', fioul: 'L', chaleur_urbain: 'MWh' };
+    const uniteMap = { electricite: 'kWh', gaz: 'm3', eau: 'm3', fioul: 'litres', chaleur_urbain: 'MWh' };
     setForm(f => ({ ...f, fluide: v, unite: uniteMap[v] || 'kWh' }));
   };
 
@@ -183,7 +183,7 @@ function CreateCompteurModal({ equipementId, onClose, onSaved }) {
         fluide: form.fluide,
         reference_compteur: form.reference_compteur || '',
         fournisseur: form.fournisseur || null,
-        unite: form.unite,
+        unite: form.unite || 'kWh',
       });
       toast.success('Compteur créé');
       onSaved();
