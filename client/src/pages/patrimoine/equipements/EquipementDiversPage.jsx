@@ -9,6 +9,7 @@ import { ArrowLeft, Edit2, Save, X, MapPin, Trash2 } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents } from 'react-leaflet';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import { InterventionModal } from '../../../components/patrimoine/InterventionModal';
+import { InterventionList } from '../../../components/patrimoine/InterventionList';
 import { TabConsommationsEquipement } from '../energie/TabConsommationsEquipement';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -176,7 +177,7 @@ export default function EquipementDiversPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('infos');
   const [showEdit, setShowEdit] = useState(false);
-  const [showIntervention, setShowIntervention] = useState(false);
+  const [interventionModal, setInterventionModal] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editingPosition, setEditingPosition] = useState(false);
@@ -420,37 +421,24 @@ export default function EquipementDiversPage() {
         )}
 
         {activeTab === 'interventions' && (
-          <div className="flex flex-col gap-3">
-            {canEditPatrimoineReferentiel && (
-              <div className="flex justify-end">
-                <button onClick={() => setShowIntervention(true)}
-                  className="btn-primary text-sm flex items-center gap-1.5">
-                  + Signaler une intervention
+          <div className="card overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="font-heading font-semibold text-sm text-text-main">
+                Interventions ({interventions.length})
+              </h3>
+              {canEditPatrimoineReferentiel && (
+                <button onClick={() => setInterventionModal({})}
+                  className="btn-primary text-xs flex items-center gap-1.5">
+                  + Nouvelle intervention
                 </button>
-              </div>
-            )}
-            {interventions.length === 0 ? (
-              <div className="text-center py-12 text-text-muted text-sm">Aucune intervention enregistrée.</div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {interventions.map(iv => (
-                  <div key={iv.id} className="border border-border rounded-xl p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="text-sm font-medium text-text-main">{iv.nature || iv.categorie || '—'}</div>
-                        <div className="text-xs text-text-muted mt-0.5">{iv.date_signalement || '—'} · {iv.statut}</div>
-                      </div>
-                      {iv.montant_ht && (
-                        <div className="text-sm font-semibold text-text-main shrink-0">
-                          {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(iv.montant_ht)}
-                        </div>
-                      )}
-                    </div>
-                    {iv.commentaire && <p className="text-xs text-text-muted mt-2 leading-relaxed">{iv.commentaire}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
+              )}
+            </div>
+            <InterventionList
+              interventions={interventions}
+              onRefresh={load}
+              onEdit={(iv) => setInterventionModal(iv)}
+              siteLabel={equip?.intitule || ''}
+            />
           </div>
         )}
       </div>
@@ -486,13 +474,15 @@ export default function EquipementDiversPage() {
       {showEdit && (
         <EditEquipementModal equip={equip} onClose={() => setShowEdit(false)} onSaved={() => { setShowEdit(false); load(); }}/>
       )}
-      {showIntervention && (
+      {interventionModal !== null && (
         <InterventionModal
           open={true}
           theme="equipement_divers"
           elementId={id}
-          onClose={() => setShowIntervention(false)}
-          onSaved={() => { setShowIntervention(false); load(); }}
+          typeElement={equip?.intitule}
+          intervention={interventionModal?.id ? interventionModal : undefined}
+          onClose={() => setInterventionModal(null)}
+          onSaved={() => { setInterventionModal(null); load(); }}
         />
       )}
     </AppLayout>
