@@ -71,6 +71,7 @@ router.get('/equipements-divers',        ctrl.getEquipementsDivers);
 router.post('/equipements-divers',       requirePatrimoineReferentielWrite, ctrl.createEquipementDivers);
 router.get('/equipements-divers/:id',    ctrl.getEquipementDivers);
 router.put('/equipements-divers/:id',    requirePatrimoineReferentielWrite, ctrl.updateEquipementDivers);
+router.delete('/equipements-divers/:id', requirePatrimoineReferentielWrite, ctrl.deleteEquipementDivers);
 router.get('/equipements-divers/:id/synthese-energie', ectrl.getSyntheseEnergieEquipement);
 
 // ── Bâtiments ─────────────────────────────────────────────────────────────────

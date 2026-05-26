@@ -1532,6 +1532,19 @@ const updateEquipementDivers = async (req, res) => {
   success(res, data);
 };
 
+const deleteEquipementDivers = async (req, res) => {
+  const { id } = req.params;
+  // Supprime les compteurs dédiés, puis les interventions, puis l'équipement
+  await Promise.all([
+    supabaseAdmin.from('compteurs').delete().eq('equipement_id', id),
+    supabaseAdmin.from('interventions_patrimoine').delete()
+      .eq('theme', 'equipement_divers').eq('element_id', id),
+  ]);
+  const { error: dbErr } = await supabaseAdmin.from('equipements_divers').delete().eq('id', id);
+  if (dbErr) return error(res, dbErr.message);
+  success(res, { deleted: true });
+};
+
 const getEquipementsDiversKpis = async (req, res) => {
   const { data: equips, error: dbErr } = await fetchAll(() =>
     supabaseAdmin.from('equipements_divers').select('etat_general, categorie')
@@ -1602,6 +1615,6 @@ module.exports = {
   getArmoiresFeux, createArmoireFeux, getArmoireFeux, updateArmoireFeux,
   getFeuxTricolores, createFeuTricolore, getFeuTricolore, updateFeuTricolore,
   getFeuxKpis,
-  getEquipementsDivers, createEquipementDivers, getEquipementDivers, updateEquipementDivers,
+  getEquipementsDivers, createEquipementDivers, getEquipementDivers, updateEquipementDivers, deleteEquipementDivers,
   getEquipementsDiversKpis,
 };

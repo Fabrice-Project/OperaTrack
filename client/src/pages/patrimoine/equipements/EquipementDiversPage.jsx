@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit2, Save, X, MapPin } from 'lucide-react';
+import { ArrowLeft, Edit2, Save, X, MapPin, Trash2 } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents } from 'react-leaflet';
 import { AppLayout } from '../../../components/layout/AppLayout';
 import { InterventionModal } from '../../../components/patrimoine/InterventionModal';
@@ -177,6 +177,8 @@ export default function EquipementDiversPage() {
   const [activeTab, setActiveTab] = useState('infos');
   const [showEdit, setShowEdit] = useState(false);
   const [showIntervention, setShowIntervention] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [editingPosition, setEditingPosition] = useState(false);
   const [mapPos, setMapPos] = useState(null);
   const [savingPos, setSavingPos] = useState(false);
@@ -196,6 +198,15 @@ export default function EquipementDiversPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await api.delete(`/patrimoine/equipements-divers/${id}`);
+      toast.success('Équipement supprimé');
+      navigate('/patrimoine/equipements-divers');
+    } catch (err) { toast.error(err.message); setDeleting(false); }
+  };
 
   const handleSavePosition = async () => {
     if (!mapPos) return;
@@ -290,10 +301,16 @@ export default function EquipementDiversPage() {
             </div>
           </div>
           {canEditPatrimoineReferentiel && (
-            <button onClick={() => setShowEdit(true)}
-              className="btn-secondary text-sm flex items-center gap-1.5 shrink-0">
-              <Edit2 size={14}/> Modifier
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={() => setShowEdit(true)}
+                className="btn-secondary text-sm flex items-center gap-1.5">
+                <Edit2 size={14}/> Modifier
+              </button>
+              <button onClick={() => setShowDeleteConfirm(true)}
+                className="text-sm flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors">
+                <Trash2 size={14}/> Supprimer
+              </button>
+            </div>
           )}
         </div>
 
@@ -438,6 +455,34 @@ export default function EquipementDiversPage() {
         )}
       </div>
 
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                <Trash2 size={18} className="text-red-600"/>
+              </div>
+              <div>
+                <h3 className="font-heading font-semibold text-text-main">Supprimer l'équipement</h3>
+                <p className="text-xs text-text-muted mt-0.5">Cette action est irréversible.</p>
+              </div>
+            </div>
+            <p className="text-sm text-text-main">
+              Confirmez-vous la suppression de <span className="font-medium">«&nbsp;{equip.intitule}&nbsp;»</span> ?
+              <br/>
+              <span className="text-text-muted text-xs">Les compteurs et interventions associés seront également supprimés.</span>
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowDeleteConfirm(false)} disabled={deleting}
+                className="btn-secondary text-sm">Annuler</button>
+              <button onClick={handleDelete} disabled={deleting}
+                className="text-sm flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors disabled:opacity-50">
+                <Trash2 size={14}/>{deleting ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showEdit && (
         <EditEquipementModal equip={equip} onClose={() => setShowEdit(false)} onSaved={() => { setShowEdit(false); load(); }}/>
       )}
