@@ -47,13 +47,16 @@ const EMPTY_FORM = {
 
 export function InterventionModal({ open, onClose, onSaved, theme, elementId, typeElement, intervention }) {
   const toast = useToast();
-  const isEdit      = !!intervention?.id;
-  const isVoirie    = theme === 'voirie';
-  const isMobilier  = theme === 'mobilier';
-  const isEclairage = theme === 'eclairage';
-  const isArmoire   = theme === 'armoire';
-  const isBatiment  = theme === 'batiment';
-  const hasMarches  = isVoirie || isMobilier || isEclairage || isArmoire || isBatiment;
+  const isEdit        = !!intervention?.id;
+  const isVoirie      = theme === 'voirie';
+  const isMobilier    = theme === 'mobilier';
+  const isEclairage   = theme === 'eclairage';
+  const isArmoire     = theme === 'armoire';
+  const isBatiment    = theme === 'batiment';
+  const isFeux        = theme === 'feux';
+  const isArmoireFeux = theme === 'armoire_feux';
+  // Feux partagent les marchés/prestataires de l'éclairage public
+  const hasMarches  = isVoirie || isMobilier || isEclairage || isArmoire || isBatiment || isFeux || isArmoireFeux;
 
   const defaultCategorie = hasMarches ? 'investissement' : 'Entretien courant';
 
@@ -68,16 +71,17 @@ export function InterventionModal({ open, onClose, onSaved, theme, elementId, ty
   const [marcheId, setMarcheId] = useState('');
 
   // Charger les marchés du bon domaine
+  // Feux tricolores → même domaine que l'éclairage (prestataires partagés)
   useEffect(() => {
     if (!hasMarches || !open) return;
-    const domaine = isMobilier ? 'mobilier'
-      : isEclairage || isArmoire ? 'eclairage'
-      : isBatiment  ? 'batiment'
+    const domaine = isMobilier                          ? 'mobilier'
+      : isEclairage || isArmoire || isFeux || isArmoireFeux ? 'eclairage'
+      : isBatiment                                      ? 'batiment'
       : 'voirie';
     api.get(`/patrimoine/voirie/marches?domaine=${domaine}`)
       .then(data => setMarches(data || []))
       .catch(() => {});
-  }, [hasMarches, isMobilier, isEclairage, isArmoire, isBatiment, open]);
+  }, [hasMarches, isMobilier, isEclairage, isArmoire, isFeux, isArmoireFeux, isBatiment, open]);
 
   if (!open) return null;
 
