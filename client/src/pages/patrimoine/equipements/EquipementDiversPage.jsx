@@ -487,8 +487,13 @@ export default function EquipementDiversPage() {
         <EditEquipementModal equip={equip} onClose={() => setShowEdit(false)} onSaved={() => { setShowEdit(false); load(); }}/>
       )}
       {showIntervention && (
-        <InterventionModal theme="equipement_divers" elementId={id}
-          onClose={() => setShowIntervention(false)} onSaved={() => { setShowIntervention(false); load(); }}/>
+        <InterventionModal
+          open={true}
+          theme="equipement_divers"
+          elementId={id}
+          onClose={() => setShowIntervention(false)}
+          onSaved={() => { setShowIntervention(false); load(); }}
+        />
       )}
     </AppLayout>
   );
