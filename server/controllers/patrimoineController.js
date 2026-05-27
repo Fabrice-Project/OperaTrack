@@ -841,8 +841,8 @@ const getVoirieInterventions = async (req, res) => {
   const isFeux              = theme === 'feux';
   const isArmoireFeux       = theme === 'armoire_feux';
   const isEquipementDivers  = theme === 'equipement_divers';
-  // Les marchés des armoires partagent le domaine 'eclairage'
-  const marcheDomaine = isArmoire ? 'eclairage' : (isArmoireFeux ? 'feux' : theme);
+  // Feux et armoires feux partagent les marchés du domaine 'eclairage'
+  const marcheDomaine = (isArmoire || isFeux || isArmoireFeux) ? 'eclairage' : theme;
 
   let elementQuery;
   if (isMobilier)         elementQuery = supabaseAdmin.from('mobilier_urbain').select('id, type, reference_terrain');
@@ -1587,7 +1587,7 @@ const getFeuxKpis = async (req, res) => {
   const { data: interventions } = await supabaseAdmin
     .from('interventions_patrimoine')
     .select('montant_ht')
-    .eq('theme', 'feux')
+    .in('theme', ['feux', 'armoire_feux'])
     .eq('type_intervenant', 'prestataire')
     .gte('date_signalement', since.toISOString().split('T')[0]);
 
