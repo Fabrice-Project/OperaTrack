@@ -10,6 +10,16 @@ async function request(path, options = {}) {
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+
+  // Token présent mais rejeté par le serveur → session expirée
+  // On nettoie silencieusement et on redirige vers la page de connexion
+  if (res.status === 401 && token) {
+    localStorage.removeItem('opera_token');
+    localStorage.removeItem('opera_user');
+    window.location.replace('/login');
+    return;
+  }
+
   const json = await res.json().catch(() => ({ success: false, data: null, error: 'Réponse invalide' }));
 
   if (!res.ok || !json.success) {
