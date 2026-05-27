@@ -941,7 +941,7 @@ function SectionInterventionsVoirie({ onSynced, theme = 'voirie' }) {
   const isReadOnly = user?.role === 'read';
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen]       = useState({ investissement: true, gros_entretien: true });
+  const [open, setOpen]       = useState({ investissement: true, gros_entretien: true, __autres__: true });
   const [syncing, setSyncing] = useState({});
   const [ivModal, setIvModal] = useState(null);
 
@@ -975,12 +975,17 @@ function SectionInterventionsVoirie({ onSynced, theme = 'voirie' }) {
 
   const { interventions, totaux } = data;
 
+  const MARCHE_CATEGORIES_SET = new Set(['investissement', 'gros_entretien']);
+
   const TypeBlock = ({ typeKey }) => {
-    const label     = MARCHE_TYPE_LABELS[typeKey];
-    const color     = MARCHE_TYPE_COLORS[typeKey];
-    const items     = interventions.filter(iv => iv.categorie === typeKey);
+    const isAutres  = typeKey === '__autres__';
+    const label     = isAutres ? 'Autres interventions' : MARCHE_TYPE_LABELS[typeKey];
+    const color     = isAutres ? '#6B7280' : MARCHE_TYPE_COLORS[typeKey];
+    const items     = isAutres
+      ? interventions.filter(iv => !MARCHE_CATEGORIES_SET.has(iv.categorie))
+      : interventions.filter(iv => iv.categorie === typeKey);
     const totalHt   = items.reduce((s, iv) => s + (parseFloat(iv.montant_ht) || 0), 0);
-    const totauxGrp = totaux.filter(t => t.categorie === typeKey && t.marche_id);
+    const totauxGrp = isAutres ? [] : totaux.filter(t => t.categorie === typeKey && t.marche_id);
     const isOpen    = open[typeKey];
 
     return (
@@ -1017,7 +1022,7 @@ function SectionInterventionsVoirie({ onSynced, theme = 'voirie' }) {
                     <tr className="border-b border-border bg-gray-50/70">
                       <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Date</th>
                       <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">
-                        {theme === 'mobilier' ? 'Mobilier' : theme === 'eclairage' ? 'Point lumineux' : theme === 'armoire' ? 'Armoire' : theme === 'batiment' ? 'Bâtiment' : 'Tronçon'}
+                        {theme === 'mobilier' ? 'Mobilier' : theme === 'eclairage' ? 'Point lumineux' : theme === 'armoire' ? 'Armoire' : theme === 'batiment' ? 'Bâtiment' : theme === 'feux' ? 'Feu tricolore' : theme === 'armoire_feux' ? 'Armoire feux' : 'Tronçon'}
                       </th>
                       <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Nature</th>
                       <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Prestataire</th>
@@ -1143,6 +1148,10 @@ function SectionInterventionsVoirie({ onSynced, theme = 'voirie' }) {
       </div>
       <TypeBlock typeKey="investissement" />
       <TypeBlock typeKey="gros_entretien" />
+      {/* Bloc de rattrapage pour les interventions avec catégories hors marchés (ex : feux tricolores) */}
+      {interventions.some(iv => !MARCHE_CATEGORIES_SET.has(iv.categorie)) && (
+        <TypeBlock typeKey="__autres__" />
+      )}
 
       {ivModal && (
         <InterventionModal
