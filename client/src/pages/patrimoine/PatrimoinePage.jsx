@@ -15,6 +15,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { InterventionModal } from '../../components/patrimoine/InterventionModal';
+import { ConfirmModal } from '../../components/ui/ConfirmModal';
 import { TabDemandes } from './TabDemandes';
 import { api } from '../../utils/api';
 
@@ -937,13 +938,14 @@ const STATUT_COLORS_IV = {
 function SectionInterventionsVoirie({ onSynced, theme = 'voirie' }) {
   const navigate = useNavigate();
   const toast = useToast();
-  const { user } = useAuth();
+  const { user, canEditPatrimoineCouts } = useAuth();
   const isReadOnly = user?.role === 'read';
-  const [data, setData]       = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [open, setOpen]       = useState({ investissement: true, gros_entretien: true, __autres__: true });
-  const [syncing, setSyncing] = useState({});
-  const [ivModal, setIvModal] = useState(null);
+  const [data, setData]             = useState(null);
+  const [loading, setLoading]       = useState(true);
+  const [open, setOpen]             = useState({ investissement: true, gros_entretien: true, __autres__: true });
+  const [syncing, setSyncing]       = useState({});
+  const [ivModal, setIvModal]       = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -968,6 +970,15 @@ function SectionInterventionsVoirie({ onSynced, theme = 'voirie' }) {
       onSynced && onSynced();
     } catch (err) { toast.error(err.message); }
     finally { setSyncing(s => ({ ...s, [key]: false })); }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/patrimoine/interventions/${deleteTarget.id}`);
+      toast.success('Intervention supprimée');
+      setDeleteTarget(null);
+      load();
+    } catch (err) { toast.error(err.message); }
   };
 
   if (loading) return <Skeleton className="h-40 rounded-xl" />;
@@ -1029,7 +1040,7 @@ function SectionInterventionsVoirie({ onSynced, theme = 'voirie' }) {
                       <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Marché</th>
                       <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide text-right">Montant HT</th>
                       <th className="py-2 px-3 text-xs font-semibold text-text-muted uppercase tracking-wide">Statut</th>
-                      <th className="py-2 px-2 w-12" />
+                      <th className="py-2 px-2 w-20" />
                     </tr>
                   </thead>
                   <tbody>
@@ -1067,13 +1078,24 @@ function SectionInterventionsVoirie({ onSynced, theme = 'voirie' }) {
                             </span>
                           </td>
                           <td className="py-2 px-2">
-                            <button
-                              onClick={e => { e.stopPropagation(); setIvModal(iv); }}
-                              className="p-1.5 rounded hover:bg-blue-50 text-blue-400"
-                              title={isReadOnly ? 'Visualiser' : 'Modifier'}
-                            >
-                              <Edit2 size={13} />
-                            </button>
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                onClick={e => { e.stopPropagation(); setIvModal(iv); }}
+                                className="p-1.5 rounded hover:bg-blue-50 text-blue-400"
+                                title={isReadOnly ? 'Visualiser' : 'Modifier'}
+                              >
+                                <Edit2 size={13} />
+                              </button>
+                              {canEditPatrimoineCouts && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); setDeleteTarget(iv); }}
+                                  className="p-1.5 rounded hover:bg-red-50 text-red-400 transition-colors"
+                                  title="Supprimer"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1164,6 +1186,14 @@ function SectionInterventionsVoirie({ onSynced, theme = 'voirie' }) {
           intervention={ivModal}
         />
       )}
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Supprimer cette intervention"
+        message={`Supprimer l'intervention « ${deleteTarget?.nature || deleteTarget?.categorie || '—'} » du ${deleteTarget?.date_signalement ? new Date(deleteTarget.date_signalement + 'T00:00:00').toLocaleDateString('fr-FR') : '—'} ?`}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
